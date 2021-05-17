@@ -1,0 +1,4 @@
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+PyMNE = "6c5003b2-cbe8-491c-a0d1-70088e6a0fd6"
+Unfold = "181c99d8-e21b-4ff3-b70b-c233eddec679"
