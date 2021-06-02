@@ -7,9 +7,9 @@ function read_eeglab(dataPath::String)
     raw.resample(128) # if you want speed ;)
     # get events dataframe
     events = DataFrame(
-        latency=raw.annotations.onset,
-        types=string.(raw.annotations.description),
-        duration=raw.annotations.duration,
+        latency = raw.annotations.onset .* 128,
+        types = string.(raw.annotations.description),
+        duration = raw.annotations.duration,
     )
     data = raw.get_data()
     return data, events
