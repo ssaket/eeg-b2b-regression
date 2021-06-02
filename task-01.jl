@@ -3,11 +3,10 @@ using Unfold, StatsModels
 # init Plots
 using Plots
 plotly()
-# import custom modules
 include("utils.jl")
 
 
-# define path for data
+# define dataset path
 path = "data/sub-45/eeg/sub-45_task-WLFO_eeg.set"
 # raw, events = read_mne_eeglab(path, 128)
 # data = raw.get_data()
@@ -16,10 +15,10 @@ path = "data/sub-45/eeg/sub-45_task-WLFO_eeg.set"
 data, events = read_eeglab_with_all_events(path, sfreq=128)
  
 # define formula 
-f = @formula 0~1 + duration
+f = @formula 0~1 + sac_amplitude
 
-# select only fixation events
-events = events[events.types .== "fixation",:]
+# select only fixation
+events = events[events.type .== "fixation",:]
 
 #=  Source: Unfold Documentation
 Since, Deconvolution works on continuous data, to compare it to the “normal” use-case, we have to epoch it. 
@@ -34,7 +33,7 @@ se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y)
 # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
 model, results_expanded = Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver=se_solver)
 
-plot_results(res[res.channel.==1,:],se=true)
+Plot(results_expanded[results_expanded.channel.==1,:])
 
 # Timexpanded Univariate Linear
 b1 = firbasis(τ=(-1,1),sfreq=20,name="basisA")
