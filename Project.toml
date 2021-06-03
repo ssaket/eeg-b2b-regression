@@ -1,8 +1,10 @@
 [deps]
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 PyMNE = "6c5003b2-cbe8-491c-a0d1-70088e6a0fd6"
