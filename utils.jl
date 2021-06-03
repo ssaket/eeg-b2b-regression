@@ -1,4 +1,4 @@
-using PyMNE, DataFrames
+using PyMNE, DataFrames, Debugger
 using MAT, DelimitedFiles
 
 # get data from EEGLab using PyMNE 
@@ -45,15 +45,19 @@ end
 
 
 function read_eeglab_with_all_events(filename; sfreq::Int64=128)
+    @bp
     file = MAT.matopen(filename)
     EEG = read(file, "EEG")  # open file
     function parse_struct(s::Dict)
         return DataFrame(map(x -> dropdims(x, dims=1), values(s)), collect(keys(s)))
     end
     events = parse_struct(EEG["event"])
-    raw = PyMNE.io.read_raw_eeglab(filename)
+    print(propertynames(events))
 
+    raw = PyMNE.io.read_raw_eeglab(filename)
     raw.resample(sfreq) # if you want speed ;)
+    events[!,:latency] .= raw.annotations.onset .* 128 #add latency
+
     data = raw.get_data()
     
     return data, events

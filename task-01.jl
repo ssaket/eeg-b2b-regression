@@ -20,7 +20,7 @@ f = @formula 0~1 + sac_amplitude
 # select only fixation
 events = events[events.type .== "fixation",:]
 
-#=  Source: Unfold Documentation
+#= Source: Unfold Documentation
 Since, Deconvolution works on continuous data, to compare it to the “normal” use-case, we have to epoch it. 
 Data cleaning is doing in the fuction definition 
 We additionally remove trials from unfold.X that were removed during epoching 
@@ -33,7 +33,9 @@ se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y)
 # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
 model, results_expanded = Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver=se_solver)
 
-Plot(results_expanded[results_expanded.channel.==1,:])
+# select a channel? Is it necessary?
+results = results_expanded[results_expanded.channel.==1,:]
+plot(x = results[:colname_basis], y = results[:estimate])
 
 # Timexpanded Univariate Linear
 b1 = firbasis(τ=(-1,1),sfreq=20,name="basisA")
