@@ -1,8 +1,8 @@
 using Unfold, StatsModels
 
 # init Plots
-using Plots # I dont use Plots but Makie.jl
-plotly()
+# using Plots # I dont use Plots but Makie.jl
+# plotly()
 include("utils.jl")
 
 
@@ -46,23 +46,23 @@ se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y,cross_val_reps = 5)
 # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
 model, results_expanded = Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver=se_solver)
 
-include("dev/Unfold/src/plot.jl") # install Makie first, also run ]dev --local Unfold   to get a "local copy" of Unfold in the folder ./dev/Unfold
+# include("dev/Unfold/src/plot.jl") # install Makie first, also run ]dev --local Unfold   to get a "local copy" of Unfold in the folder ./dev/Unfold
 
 plot_results(results_expanded,layout_x=:basisname) # the layout_x is needed because group=nothing and the plotting function doesnt like that...
 
 #--- didnt look further than that, but noticed I havent implemented B2B for 2D data yet (necessary for deconvolution) - but it should be very simple to do.
 
 # select a channel? Is it necessary?plo
-results = results_expanded[results_expanded.channel.==1,:]
-plot(x = results[:colname_basis], y = results[:estimate])
+# results = results_expanded[results_expanded.channel.==1,:]
+# plot(x = results[:colname_basis], y = results[:estimate])
 
-# Timexpanded Univariate Linear
-b1 = firbasis(τ=(-1,1),sfreq=20,name="basisA")
-f1  = @formula 0~1+sac_amplitude
+# # Timexpanded Univariate Linear
+# b1 = firbasis(τ=(-1,1),sfreq=20,name="basisA")
+# f1  = @formula 0~1+sac_amplitude
 
-# Generate Designmatrix & fit time-expanded model(modeling linear overlap).
-model,results_expanded = Unfold.fit(UnfoldLinearModel,f,evts,data,b1)
-model_new, result_long_new = fit(UnfoldLinearModel,Dict(0=>(f1,b1)),evts,data,eventcolumn="fixation")
+# # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
+# model,results_expanded = Unfold.fit(UnfoldLinearModel,f,evts,data,b1)
+# model_new, result_long_new = fit(UnfoldLinearModel,Dict(0=>(f1,b1)),evts,data,eventcolumn="fixation")
 
 
 # TODO
