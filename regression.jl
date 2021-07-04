@@ -18,7 +18,7 @@ function get_massunivariate_gamma(path, formula, event_types = undef)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
     model, results_expanded =
-        Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver = se_solver)
+        Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
     return results_expanded
 end
 
@@ -38,7 +38,7 @@ function plot_massunivariate_gamma(path, formula, event_types = undef)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
     model, results_expanded =
-        Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver = se_solver)
+        Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
     plot_results(results_expanded, layout_x = :basisname)
 end
 
@@ -56,7 +56,7 @@ function get_time_expanded_gamma(path, formula, event_types = undef)
     se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
     b1 = firbasis(τ = (-1, 1), sfreq = 20, name = "basisA")
-    f1 = @formula 0 ~1 + sac_amplitude
+    f1 = @formula 0~1 + sac_amplitude
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
     # old method
@@ -64,7 +64,7 @@ function get_time_expanded_gamma(path, formula, event_types = undef)
     model_new, result_long_new = fit(
         UnfoldLinearModel,
         Dict(0 => (f1, b1)),
-        evts,
+        events,
         data,
         eventcolumn = "fixation",
     )
@@ -93,17 +93,18 @@ function plot_time_expanded_gamma(path, f1, b1, event_types = undef)
 end
 
 # main funtion
-function run()
+function start_regression()
     path = "data/sub-45/eeg/sub-45_task-WLFO_eeg.set"
     if !isfile(path)
         path = "/store/data/WLFO/derivatives/preproc_agert/sub-45/eeg/sub-45_task-WLFO_eeg.set"
     end
 
-    # f = @formula 0 ~1 + sac_amplitude # also tried + sac_vmax with interesting results
+    f = @formula 0~1 + sac_amplitude # also tried + sac_vmax with interesting results
     b1 = firbasis(τ = (-1, 1), sfreq = 120, name = "basisA")
     f1 = @formula 0~1 + sac_amplitude + sac_vmax
-    plot_time_expanded_gamma(path, f1, b1)
+    # plot_time_expanded_gamma(path, f1, b1)
+    plot_massunivariate_gamma(path, f)
 end
 end
 
-B2BRegression.run()
+B2BRegression.start_regression()

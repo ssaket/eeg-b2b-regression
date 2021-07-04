@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 04ddbcb7-5c2b-4c3b-8cf5-a5b294af8d64
-using Unfold, StatsModels, ProgressMeter
+using Unfold, StatsModels
 
 # ╔═╡ 4493bf65-5fec-4be3-bff2-491c2562ce78
 include("utils.jl")
