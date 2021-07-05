@@ -5,38 +5,45 @@ include("utils.jl")
 
 # get massunivariate gamma
 function get_massunivariate_gamma(path, formula, event_types = undef)
+    @info "reading data and events"
     data, events = read_eeglab_with_all_events(path, sfreq = 128)
 
     # select only fixation
+    @info "selecting only fixation events"
     events = events[events.type.=="fixation", :]
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
+    @info "cutting data into epochs"
     beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) # cut the data into epochs
     beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
+    @info "fit mass-univariate model"
     model, results_expanded =
         Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
     return results_expanded
 end
 
 # plot massunivariate gamma
-function plot_massunivariate_gamma(path, formula, event_types = undef)
+function plot_massunivariate_gamma(path, formula, event_types = undef, sfreq::Int64=128)
 
-    data, events = read_eeglab_with_all_events(path, sfreq = 128)
+    @info "reading data and events, with sampling freq $(sfreq)"
+    data, events = read_eeglab_with_all_events(path; sfreq)
 
-    # select only fixation
+    @info "selecting only fixation events"
     events = events[events.type.=="fixation", :]
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
-    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) # cut the data into epochs
-    beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+    @info "cutting data into epochs"
+    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) 
+    beta[:, :, isnan.(events.sac_vmax)] .= missing
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
+    @info "fit mass-univariate model"
     model, results_expanded =
         Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
     plot_results(results_expanded, layout_x = :basisname)
@@ -50,10 +57,6 @@ function get_time_expanded_gamma(path, formula, event_types = undef)
     events = events[events.type.=="fixation", :]
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
-
-    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) # cut the data into epochs
-    beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
     b1 = firbasis(τ = (-1, 1), sfreq = 20, name = "basisA")
     f1 = @formula 0~1 + sac_amplitude
@@ -80,10 +83,6 @@ function plot_time_expanded_gamma(path, f1, b1, event_types = undef)
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
-    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) # cut the data into epochs
-    beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
-
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
     # old method
     model, results_expanded = Unfold.fit(UnfoldLinearModel, f1, events, data, b1)
@@ -107,4 +106,4 @@ function start_regression()
 end
 end
 
-B2BRegression.start_regression()
+# B2BRegression.start_regression()
