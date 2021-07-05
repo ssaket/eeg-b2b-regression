@@ -1,4 +1,3 @@
-using Core: Vector
 using DSP, Random
 using DataFrames, Distributions, StatsBase
 using Unfold, StatsModels
@@ -44,27 +43,37 @@ mutable struct SimulationData
 end
 
 
-function simulate_events(ntrials, event_ids, relations; dist = multivariate_ndis)
+function simulate_events(
+    ntrials::Int64,
+    event_ids::Dict{Int64, String},
+    relations::Dict{String, Union{Vector, Matrix{Float64}}};
+    dist = multivariate_ndis,
+    means = ones,
+)
 
-    @assert !isempty(relations) && length(relations["true_cov"]) < 1 "columns relation is required!"
+    @assert !isempty(relations) "columns relation is required!"
 
-    if !isempty(relations)
-        nom_cols = relations["nominal"]
-        quan_cols = relations["qualitative"]
-        auto_cor_cols = relations["auto_corr"]
+    if length(relations["true_cov"]) < 1
+        n = length(event_ids)
+        # taken from https://discourse.julialang.org/t/generate-a-positive-definite-matrix/48582
+        relations["auto_corr"] = randn(n,n); A = A'*A; A = (A + A')/2
     end
 
-    # define distribution cov
-    true_cov = [1 0.5; 0.5 1]
-    # define distribution mean
-    means = ones(Float64, 2)
+    nom_cols = relations["nominal"]
 
-    X = rand(dist(means, true_cov), ntrials)
+    # define distribution cov
+    true_cov = length(relations["true_cov"]) > 1 ? relations["true_cov"] : relations["auto_corr"]
+    @assert size(true_cov)[1] == length(event_ids) - 1 "incorrect covariance matrix"
+    # define distribution mean
+    _mean = means(Float64, size(true_cov)[1])
+
+    X = rand(dist(_mean, true_cov), ntrials)
 
     # construct events 
-    X = hcat(ones(ntrials), rand(0:1, ntrials), X')
+    X = hcat(ones(ntrials), X')
     col_names = [Symbol(v) for (_, v) in sort(event_ids)]
     events = DataFrame(X, col_names)
+    events[:, nom_cols] .= round.(Int, events[!, nom_cols]) 
     return events
 
 end
@@ -72,20 +81,22 @@ end
 # Generate simulation data
 function simulate_epochs_data(
     ntime,
-    ntrials,
     nchannels,
     events,
     sampling_rate = 1;
     noise_generator = random_noise,
     windows = hanning_windows,
 )
+    # signal
     b = windows(ntime)
     # define weights
     coef = [0, 3, 1, 2.0]
+    # trials
+    ntrials = size(events, 1)
 
-    @assert length(size(events, 2)) == length(coef)
+    @assert size(events, 2) == length(coef) "unequal covariates and weights"
 
-    Yhat = X * (repeat(b', size(events, 2)) .* coef)
+    Yhat = Matrix(events) * (repeat(b', size(events, 2)) .* coef)
 
     noise = noise_generator(nchannels, ntime, ntrials)
 
@@ -96,34 +107,34 @@ function simulate_epochs_data(
     return SimulationData(events, beta, times)
 end
 
-event_ids = Dict{Int64, String}(
-    1 => "intercept",
-    2 => "catA",
-    3 => "condA",
-    4 => "condB",
-)
-events_relation = Dict{String, Vector{Int64}}(
-    "auto_corr" => [],
-    "nominal" => [2],
-    "qualitative" => [3,4],
-    "true_cov" => [1 0.5; 0.5 1]
-)
 
-events = simulate_events(ntrials, event_ids, event_rels),
-sim_data = simulate_epochs_data(100, 50, 30, events)
-se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+function run_sim()
+    event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
+    event_rels = Dict{String, Union{Vector, Matrix{Float64}}}(
+        "auto_corr" => [],
+        "nominal" => [2],
+        "qualitative" => [3, 4],
+        "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1]
+    )
 
-frm = @formula 0 ~1 + cond_A + cat_A
+    events = simulate_events(50, event_ids, event_rels)
+    sim_data = simulate_epochs_data(100, 30, events)
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
-# Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
-@info "fit mass-univariate model"
+    frm = @formula 0~1 + condA + catA
 
-model, results_expanded = Unfold.fit(
-    UnfoldLinearModel,
-    frm,
-    sim_data.events,
-    sim_data.epochs,
-    sim_data.times,
-    solver = se_solver,
-)
-plot_results(results_expanded, layout_x = :basisname)
+    # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
+    @info "fit mass-univariate model"
+
+    model, results_expanded = Unfold.fit(
+        UnfoldLinearModel,
+        frm,
+        sim_data.events,
+        sim_data.epochs,
+        sim_data.times,
+        solver = se_solver,
+    )
+    plot_results(results_expanded, layout_x = :basisname)
+end
+
+run_sim()
