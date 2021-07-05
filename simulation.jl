@@ -52,6 +52,7 @@ function simulate_events(
 )
 
     @assert !isempty(relations) "columns relation is required!"
+    @assert relations["true_cov"] == relations["true_cov"]' "Invalid covariance matrix"
 
     if length(relations["true_cov"]) < 1
         n = length(event_ids)
