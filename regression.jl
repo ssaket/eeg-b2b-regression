@@ -23,7 +23,7 @@ function get_massunivariate_gamma(path, formula, event_types = undef)
     @info "fit mass-univariate model"
     model, results_expanded =
         Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
-    return results_expanded
+    return (model, results_expanded)
 end
 
 # plot massunivariate gamma
@@ -47,20 +47,17 @@ function plot_massunivariate_gamma(path, formula, event_types = undef, sfreq::In
     model, results_expanded =
         Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
     @info "plotting results"
-    plot_results(results_expanded, layout_x = :basisname)
+    return plot_results(results_expanded, layout_x = :basisname)
 end
 
 # get time-expanded gamma
-function get_time_expanded_gamma(path, formula, event_types = undef)
+function get_time_expanded_gamma(path, f1, b1, event_types = undef)
     data, events = read_eeglab_with_all_events(path, sfreq = 128)
 
     # select only fixation
     events = events[events.type.=="fixation", :]
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
-
-    b1 = firbasis(τ = (-1, 1), sfreq = 20, name = "basisA")
-    f1 = @formula 0~1 + sac_amplitude
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
     # old method
@@ -72,7 +69,7 @@ function get_time_expanded_gamma(path, formula, event_types = undef)
         data,
         eventcolumn = "fixation",
     )
-    return result_long_new
+    return (model_new, result_long_new)
 end
 
 # plot time expanded gamma
@@ -90,7 +87,7 @@ function plot_time_expanded_gamma(path, f1, b1, event_types = undef)
     # model_new, result_long_new =
     #     fit(UnfoldLinearModel, Dict(0 => (f1, b1)), events, data, eventcolumn = :type, solver = se_solver)
     @info "plotting results"
-    plot_results(results_expanded, layout_x = :basisname)
+    return plot_results(results_expanded, layout_x = :basisname)
 end
 
 # main funtion
