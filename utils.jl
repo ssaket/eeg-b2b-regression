@@ -57,7 +57,8 @@ function read_eeglab_with_all_events(filename; sfreq::Int64 = 128)
         return DataFrame(map(x -> dropdims(x, dims = 1), values(s)), collect(keys(s)))
     end
     events = parse_struct(EEG["event"])
-    print(propertynames(events))
+    @info "Event types"
+    println(propertynames(events))
 
     raw = PyMNE.io.read_raw_eeglab(filename)
     raw.resample(sfreq) # if you want speed ;)
