@@ -4,13 +4,13 @@ using Unfold, StatsModels
 include("utils.jl")
 
 # get massunivariate gamma
-function get_massunivariate_gamma(path, formula, event_types = undef)
-    @info "reading data and events"
-    data, events = read_eeglab_with_all_events(path, sfreq = 128)
+function get_massunivariate_gamma(path, formula; event_types = ["fixation"], sfreq::Int64=128)
 
-    # select only fixation
-    @info "selecting only fixation events"
-    events = events[events.type.=="fixation", :]
+    @info "reading data and events, with sampling freq $(sfreq)"
+    data, events = read_eeglab_with_all_events(path; sfreq)
+
+    @info "selecting only $(event_types) events"
+    map(x -> events = events[events.type.==x, :], event_types)
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
@@ -27,13 +27,14 @@ function get_massunivariate_gamma(path, formula, event_types = undef)
 end
 
 # plot massunivariate gamma
-function plot_massunivariate_gamma(path, formula, event_types = undef, sfreq::Int64=128)
+function plot_massunivariate_gamma(path, formula; event_types = ["fixation"], sfreq::Int64=128)
 
     @info "reading data and events, with sampling freq $(sfreq)"
     data, events = read_eeglab_with_all_events(path; sfreq)
 
-    @info "selecting only fixation events"
-    events = events[events.type.=="fixation", :]
+    @info "selecting only $(event_types) events"
+    map(x -> events = events[events.type.==x, :], event_types)
+    # events = events[events.type.=="fixation", :]
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
@@ -51,11 +52,11 @@ function plot_massunivariate_gamma(path, formula, event_types = undef, sfreq::In
 end
 
 # get time-expanded gamma
-function get_time_expanded_gamma(path, f1, b1, event_types = undef)
+function get_time_expanded_gamma(path, f1, b1; event_types = ["fixation"])
     data, events = read_eeglab_with_all_events(path, sfreq = 128)
 
-    # select only fixation
-    events = events[events.type.=="fixation", :]
+    @info "selecting only $(event_types) events"
+    map(x -> events = events[events.type.==x, :], event_types)
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
@@ -73,11 +74,11 @@ function get_time_expanded_gamma(path, f1, b1, event_types = undef)
 end
 
 # plot time expanded gamma
-function plot_time_expanded_gamma(path, f1, b1, event_types = undef)
+function plot_time_expanded_gamma(path, f1, b1; event_types = ["fixation"])
     data, events = read_eeglab_with_all_events(path, sfreq = 128)
 
-    # select only fixation
-    events = events[events.type.=="fixation", :]
+    @info "selecting only $(event_types) events"
+    map(x -> events = events[events.type.==x, :], event_types)
     events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
     events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
