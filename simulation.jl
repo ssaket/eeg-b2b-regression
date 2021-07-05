@@ -52,12 +52,13 @@ function simulate_events(
 )
 
     @assert !isempty(relations) "columns relation is required!"
-    @assert relations["true_cov"] == relations["true_cov"]' "Invalid covariance matrix"
+    length(relations["true_cov"]) > 1 && @assert relations["true_cov"] == relations["true_cov"]' "Invalid covariance matrix"
 
     if length(relations["true_cov"]) < 1
-        n = length(event_ids)
+        n = length(event_ids) - 1
         # taken from https://discourse.julialang.org/t/generate-a-positive-definite-matrix/48582
-        relations["auto_corr"] = randn(n,n); A = A'*A; A = (A + A')/2
+        A = randn(n,n); A = A'*A; A = (A + A')/2
+        relations["auto_corr"] = A
     end
 
     nom_cols = relations["nominal"]
