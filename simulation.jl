@@ -42,7 +42,7 @@ mutable struct SimulationData
     )
 end
 
-
+# Generate events data
 function simulate_events(
     ntrials::Int64,
     event_ids::Dict{Int64, String},
@@ -80,7 +80,7 @@ function simulate_events(
 
 end
 
-# Generate simulation data
+# Generate epochs data
 function simulate_epochs_data(
     ntime,
     nchannels,
@@ -109,7 +109,7 @@ function simulate_epochs_data(
     return SimulationData(events, beta, times)
 end
 
-
+# main function
 function run_sim()
     event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
     event_rels = Dict{String, Union{Vector, Matrix{Float64}}}(
