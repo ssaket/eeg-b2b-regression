@@ -20,7 +20,7 @@ function read_mne_eeglab(dataPath::String, sfreq::Int64 = 128)
 end
 
 # get data from EEGLab using bare IO
-function read_eeglab(filename)
+function read_eeglab_old(filename)
     file = MAT.matopen(filename)
     EEG = read(file, "EEG")  # open file
     function parse_struct(s::Dict)
@@ -49,24 +49,25 @@ function read_eeglab(filename)
 end
 
 
-function read_eeglab_with_all_events(filename; sfreq::Int64 = 128)
-    @bp
+function read_eeglab(filename::String, sfreq::Int64; cols::Array{String} = String[], mne::Bool = false)
+
     file = MAT.matopen(filename)
     EEG = read(file, "EEG")  # open file
-    function parse_struct(s::Dict)
-        return DataFrame(map(x -> dropdims(x, dims = 1), values(s)), collect(keys(s)))
-    end
-    events = parse_struct(EEG["event"])
+    evt_cols = EEG["event"]
+    # Filtering columns
+    length(cols) > 0 && filter!((k, v) -> k in cols, s)
+    events = DataFrame(map(x -> dropdims(x, dims = 1), values(evt_cols)), collect(keys(evt_cols)))
+
     @info "Event types"
-    println(propertynames(events))
+    map(x -> print(x * ', '),  names(events))
 
     raw = PyMNE.io.read_raw_eeglab(filename)
-    raw.resample(sfreq) # if you want speed ;)
-    events[!, :latency] .= raw.annotations.onset .* 128 #add latency
+    raw.resample(sfreq) # for speed
+    events[!, :latency] .= raw.annotations.onset .* sfreq #add latency
 
-    data = raw.get_data()
+    !mne && (raw = raw.get_data())
 
-    return data, events
+    return raw, events
 end
 
 #---
