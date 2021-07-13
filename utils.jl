@@ -49,18 +49,28 @@ function read_eeglab_old(filename)
 end
 
 
-function read_eeglab(filename::String, sfreq::Int64; cols::Array{String} = String[], mne::Bool = false)
+function read_eeglab(filename::String, sfreq::Int64; cols::Array{String} = String[], mne::Bool = false, type::Type = Float64)
 
     file = MAT.matopen(filename)
     EEG = read(file, "EEG")  # open file
     evt_cols = EEG["event"]
     # Filtering columns
     length(cols) > 0 && filter!((k, v) -> k in cols, s)
+    # Type cast if possible
+    function cast_type(x, type)
+        try
+            return convert.(type, x)
+        catch
+            return x
+        end
+    end
+    
     events = DataFrame(map(x -> dropdims(x, dims = 1), values(evt_cols)), collect(keys(evt_cols)))
 
     @info "Event types"
-    map(x -> print(x * ', '),  names(events))
-
+    map(x -> events[!, x] = cast_type(events[!, x], type), names(events))
+    println(describe(events))
+    
     raw = PyMNE.io.read_raw_eeglab(filename)
     raw.resample(sfreq) # for speed
     events[!, :latency] .= raw.annotations.onset .* sfreq #add latency
