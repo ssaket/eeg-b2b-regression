@@ -4,91 +4,120 @@ using Unfold, StatsModels
 include("utils.jl")
 
 # get massunivariate gamma
-function get_massunivariate_gamma(path, formula; event_types = ["fixation"], sfreq::Int64=128)
+function get_massunivariate_gamma(
+    path::String,
+    formula::FormulaTerm;
+    τ::Tuple = (-0.3, 0.5),
+    event_types::Array{String} = ["fixation"],
+    sfreq::Int64 = 128,
+    cross_val_reps = 5,
+    mixed = false,
+)
 
     @info "reading data and events, with sampling freq $(sfreq)"
-    data, events = read_eeglab_with_all_events(path; sfreq)
+    data, events = read_eeglab(path, sfreq)
 
     @info "selecting only $(event_types) events"
     map(x -> events = events[events.type.==x, :], event_types)
-    events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
-    events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
     @info "cutting data into epochs"
-    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) # cut the data into epochs
+    beta, times = Unfold.epoch(data = data, tbl = events, τ = τ, sfreq = sfreq) # cut the data into epochs
     beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = cross_val_reps)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
-    @info "fit mass-univariate model"
+    @info "fitting mass-univariate model"
+    mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
     model, results_expanded =
-        Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
+        Unfold.fit(mtype, formula, events, beta, times, solver = se_solver)
+
     return (model, results_expanded)
 end
 
 # plot massunivariate gamma
-function plot_massunivariate_gamma(path, formula; event_types = ["fixation"], sfreq::Int64=128)
+function plot_massunivariate_gamma(
+    path::String,
+    formula::FormulaTerm;
+    τ::Tuple = (-0.3, 0.5),
+    event_types::Array{String} = ["fixation"],
+    sfreq::Int64 = 128,
+    cross_val_reps = 5,
+    mixed = false,
+)
 
     @info "reading data and events, with sampling freq $(sfreq)"
-    data, events = read_eeglab_with_all_events(path; sfreq)
+    data, events = read_eeglab(path, sfreq)
 
     @info "selecting only $(event_types) events"
     map(x -> events = events[events.type.==x, :], event_types)
-    # events = events[events.type.=="fixation", :]
-    events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
-    events[!, :sac_vmax] = Float64.(events.sac_vmax)
 
     @info "cutting data into epochs"
-    beta, times = Unfold.epoch(data = data, tbl = events, τ = (-0.3, 0.5), sfreq = 128) 
+    beta, times = Unfold.epoch(data = data, tbl = events, τ = τ, sfreq = sfreq)
     beta[:, :, isnan.(events.sac_vmax)] .= missing
-    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = cross_val_reps)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
-    @info "fit mass-univariate model"
+    @info "fitting mass-univariate model"
+    mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
     model, results_expanded =
-        Unfold.fit(UnfoldLinearModel, formula, events, beta, times, solver = se_solver)
+        Unfold.fit(mtype, formula, events, beta, times, solver = se_solver)
+
     @info "plotting results"
     return plot_results(results_expanded, layout_x = :basisname)
 end
 
 # get time-expanded gamma
-function get_time_expanded_gamma(path, f1, b1; event_types = ["fixation"])
-    data, events = read_eeglab_with_all_events(path, sfreq = 128)
+function get_timeexpansion_gamma(
+    path::String,
+    formula::FormulaTerm;
+    event_types::Array{String} = ["fixation"],
+    sfreq::Int64 = 128,
+    channels = [1],
+    events_config = Dict(0 => (f1, b1)),
+    mixed = false,
+)
+    @info "reading data and events, with sampling freq $(sfreq)"
+    data, events = read_eeglab(path, sfreq)
 
     @info "selecting only $(event_types) events"
     map(x -> events = events[events.type.==x, :], event_types)
-    events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
-    events[!, :sac_vmax] = Float64.(events.sac_vmax)
+
+    # select channels
+    data = data[channels, :]
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
-    # old method
-    # model,results_expanded = Unfold.fit(UnfoldLinearModel,f,evts,data,b1) 
-    model_new, result_long_new = fit(
-        UnfoldLinearModel,
-        Dict(0 => (f1, b1)),
-        events,
-        data,
-        eventcolumn = "fixation",
-    )
-    return (model_new, result_long_new)
+    @info "fitting time-expanded model"
+    mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
+    model_new, result_long = fit(mtype, events_config, events, data)
+    return (model_new, result_long)
 end
 
 # plot time expanded gamma
-function plot_time_expanded_gamma(path, f1, b1; event_types = ["fixation"])
-    data, events = read_eeglab_with_all_events(path, sfreq = 128)
+function plot_timeexpansion_gamma(
+    path::String,
+    formula::FormulaTerm;
+    event_types::Array{String} = ["fixation"],
+    sfreq::Int64 = 128,
+    channels = [1],
+    events_config = Dict(0 => (f1, b1)),
+    mixed = false,
+)
+    @info "reading data and events, with sampling freq $(sfreq)"
+    data, events = read_eeglab(path, sfreq)
 
     @info "selecting only $(event_types) events"
     map(x -> events = events[events.type.==x, :], event_types)
-    events[!, :sac_amplitude] = Float64.(events.sac_amplitude)
-    events[!, :sac_vmax] = Float64.(events.sac_vmax)
+
+    # select channels
+    data = data[channels, :]
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
-    # old method
-    model, results_expanded = Unfold.fit(UnfoldLinearModel, f1, events, data, b1)
-    # model_new, result_long_new =
-    #     fit(UnfoldLinearModel, Dict(0 => (f1, b1)), events, data, eventcolumn = :type, solver = se_solver)
+    @info "fitting time-expanded model"
+    mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
+    model_new, result_long = fit(mtype, events_config, events, data)
+    
     @info "plotting results"
-    return plot_results(results_expanded, layout_x = :basisname)
+    return plot_results(result_long, layout_x = :basisname)
 end
 
 # main funtion
