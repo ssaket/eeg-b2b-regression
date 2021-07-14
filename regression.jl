@@ -115,7 +115,7 @@ function plot_timeexpansion_gamma(
     @info "fitting time-expanded model"
     mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
     model_new, result_long = fit(mtype, events_config, events, data)
-    
+
     @info "plotting results"
     return plot_results(result_long, layout_x = :basisname)
 end
@@ -133,6 +133,13 @@ function start_regression()
     # plot_time_expanded_gamma(path, f1, b1)
     plot_massunivariate_gamma(path, f)
 end
-end
 
-B2BRegression.start_regression()
+include("simulation.jl")
+export get_massunivariate_gamma,
+    plot_massunivariate_gamma,
+    get_timeexpansion_gamma,
+    plot_timeexpansion_gamma,
+    simulate_events,
+    simulate_epochs_data,
+    run_simulation
+end
