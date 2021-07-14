@@ -104,10 +104,11 @@ function simulate_epochs_data(
     sampling_rate = 1,
     coef = shuffle(Vector(0:3)), # define channel weights
     noise_generator = random_noise,
-    windows = hanning_windows,
+    windows = bartlett_hann_windows,
+    padding = 0
 )
     # signal
-    basisfunc = windows(ntime)
+    basisfunc = windows(ntime - 2*padding, 2*padding)
 
     # trials
     ntrials = size(events, 1)
@@ -140,11 +141,11 @@ function run_sim()
     event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
         "auto_corr" => [],
         "nominal" => [2],
-        "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1],
+        "true_cov" => [1 0.7 0.2; 0.7 1 0.3; 0.2 0.3 1],
     )
 
-    events = simulate_events(200, event_ids, event_rels)
-    sim_data = simulate_epochs_data(100, 30, events)
+    events = simulate_events(600, event_ids, event_rels)
+    sim_data = simulate_epochs_data(800, 30, events)
     se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
     frm = @formula 0~1 + condA + condB
@@ -169,7 +170,6 @@ event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 =>
 event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
     "auto_corr" => [],
     "nominal" => [2],
-    "qualitative" => [3, 4],
     "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1],
 )
 eventsa = simulate_events(50, event_ids, event_rels)
