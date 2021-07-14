@@ -69,11 +69,11 @@ end
 # get time-expanded gamma
 function get_timeexpansion_gamma(
     path::String,
-    formula::FormulaTerm;
+    eventcolumn,
+    config::Dict;
     event_types::Array{String} = ["fixation"],
     sfreq::Int64 = 128,
     channels = [1],
-    events_config = Dict(0 => (f1, b1)),
     mixed = false,
 )
     @info "reading data and events, with sampling freq $(sfreq)"
@@ -83,23 +83,23 @@ function get_timeexpansion_gamma(
     map(x -> events = events[events.type.==x, :], event_types)
 
     # select channels
-    data = data[channels, :]
+    data = length(channels) > 0 ? reshape(data[channels, :], (1, :)) : reshape(data, (1, :))
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
     @info "fitting time-expanded model"
     mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
-    model_new, result_long = fit(mtype, events_config, events, data)
+    model_new, result_long = fit(mtype, config, events, data, eventcolumn=eventcolumn)
     return (model_new, result_long)
 end
 
 # plot time expanded gamma
 function plot_timeexpansion_gamma(
     path::String,
-    formula::FormulaTerm;
+    eventcolumn,
+    config;
     event_types::Array{String} = ["fixation"],
     sfreq::Int64 = 128,
     channels = [1],
-    events_config = Dict(0 => (f1, b1)),
     mixed = false,
 )
     @info "reading data and events, with sampling freq $(sfreq)"
@@ -109,12 +109,12 @@ function plot_timeexpansion_gamma(
     map(x -> events = events[events.type.==x, :], event_types)
 
     # select channels
-    data = data[channels, :]
+    data = length(channels) > 0 ? reshape(data[channels, :], (1, :)) : reshape(data, (1, :))
 
     # Generate Designmatrix & fit time-expanded model(modeling linear overlap).
     @info "fitting time-expanded model"
     mtype = mixed ? UnfoldLinearMixedModel : UnfoldLinearModel
-    model_new, result_long = fit(mtype, events_config, events, data)
+    model_new, result_long = fit(mtype, config, events, data, eventcolumn=eventcolumn)
 
     @info "plotting results"
     return plot_results(result_long, layout_x = :basisname)
@@ -128,10 +128,18 @@ function start_regression()
     end
 
     f = @formula 0~1 + sac_amplitude + sac_vmax + humanface
-    b1 = firbasis(τ = (-1, 1), sfreq = 120, name = "basisA")
-    f1 = @formula 0~1 + sac_amplitude + sac_vmax + humanface
-    # plot_time_expanded_gamma(path, f1, b1)
-    plot_massunivariate_gamma(path, f)
+    # plot_massunivariate_gamma(path, f)
+    
+    plot_timeexpansion_gamma(
+        path,
+        "type",
+        Dict(
+            "sac_amplitude" => (
+                (@formula 0~1 + sac_amplitude + sac_vmax),
+                firbasis(τ = (-1, 1), sfreq = 128, name = "basisA"),
+            ),
+        ),
+    )
 end
 
 include("simulation.jl")
