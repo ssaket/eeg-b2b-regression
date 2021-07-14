@@ -33,13 +33,15 @@ mutable struct SimulationData
     events::DataFrame # trials * covariates
     epochs::Array{Float64,3} # channels * times * trials
     times::Array{Float64,1} # trials
+    ration::Float64
     stats::EventStatsMatrix # covariance and mean
 
-    SimulationData(events, epochs, times) = new(
+    SimulationData(events, epochs, times, ratio) = new(
         epochs[:, :, 1],
         events,
         epochs,
         times,
+        ratio,
         EventStatsMatrix(mean_and_cov(Matrix(events))),
     )
 end
@@ -131,46 +133,40 @@ function simulate_epochs_data(
     beta = beta + noise
     times = range(1, stop = ntime, step = 1 / sampling_rate)
 
-    return SimulationData(events, beta, times)
+    return SimulationData(events, beta, times, sig_to_noise)
 end
 
 # main function
-function run_sim()
-    event_ids =
-        Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
-    event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
-        "auto_corr" => [],
-        "nominal" => [2],
-        "true_cov" => [1 0.7 0.2; 0.7 1 0.3; 0.2 0.3 1],
-    )
+function run_simulation(num=1, times=200, trials=300, channels=30)
+    res = []
+    for i in 0:num
+        event_ids =
+            Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
+        event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
+            "auto_corr" => [],
+            "nominal" => [2],
+            "true_cov" => [1 0.7 0.2; 0.7 1 0.3; 0.2 0.3 1],
+        )
 
-    events = simulate_events(600, event_ids, event_rels)
-    sim_data = simulate_epochs_data(800, 30, events)
-    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+        events = simulate_events(trials, event_ids, event_rels)
+        sim_data = simulate_epochs_data(times, channels, events)
+        se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
-    frm = @formula 0~1 + condA + condB
+        frm = @formula 0~1 + condA + condB
 
-    # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
-    @info "fit mass-univariate model"
+        # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
+        @info "fit mass-univariate model"
 
-    model, results_expanded = Unfold.fit(
-        UnfoldLinearModel,
-        frm,
-        sim_data.events,
-        sim_data.epochs,
-        sim_data.times,
-        solver = se_solver,
-    )
-    plot_results(results_expanded, layout_x = :basisname)
+        model, results_expanded = Unfold.fit(
+            UnfoldLinearModel,
+            frm,
+            sim_data.events,
+            sim_data.epochs,
+            sim_data.times,
+            solver = se_solver,
+        )
+        pt = plot_results(results_expanded, layout_x = :basisname)
+        push!(res, pt)
+    end
+    return res
 end
-
-run_sim()
-
-event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
-event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
-    "auto_corr" => [],
-    "nominal" => [2],
-    "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1],
-)
-eventsa = simulate_events(50, event_ids, event_rels)
-sim_datasa = simulate_epochs_data(100, 30, eventsa)
