@@ -5,17 +5,19 @@ using Unfold, StatsModels
 include("utils.jl")
 
 # Signal windows
-hanning_windows(time) = DSP.hanning(time)
-hamming_windows(time) = DSP.hamming(time)
-hanwin_windows(time) = DSP.hanning_winplot(time)
+hanning_windows(time, padding = 0) = DSP.Windows.hanning(time, padding = padding)
+lanczos_windows(time, padding = 0) = DSP.Windows.lanczos(time, padding = padding)
+bartlett_hann_windows(time, padding = 0) = DSP.Windows.bartlett_hann(time, padding = padding)
 
 # Mutivariate Distribution
-multivariate_ndis(means::Vector{Float64}, covr::Matrix{Float64} = [1 0.5; 0.5 1]) =
-    MvNormal(means, covr)
+multivariate_ndis(
+    means::Vector{Float64} = ones(2),
+    covr::Matrix{Float64} = [1 0.5; 0.5 1],
+) = MvNormal(means, covr)
 
 # Noise functions
 random_noise(nchannels, ntime, ntrials) = (noiseLevels = Array(1:nchannels) ./ nchannels;
-noiseLevels .* randn(nchannels, ntime, ntrials))
+    noiseLevels .* randn(nchannels, ntime, ntrials))
 
 # Events mean and covariance
 mutable struct EventStatsMatrix
@@ -42,29 +44,38 @@ mutable struct SimulationData
     )
 end
 
+mutable struct Events
+    event_ids::Dict{Int64,String}
+    relations::Dict{String,Union{Vector,Matrix{Float64}}}
+end
+
 # Generate events data
 function simulate_events(
     ntrials::Int64,
-    event_ids::Dict{Int64, String},
-    relations::Dict{String, Union{Vector, Matrix{Float64}}};
+    event_ids::Dict{Int64,String},
+    relations::Dict{String,Union{Vector,Matrix{Float64}}};
     dist = multivariate_ndis,
-    means = ones,
+    means = ones, # default means are 1
 )
 
     @assert !isempty(relations) "columns relation is required!"
-    length(relations["true_cov"]) > 1 && @assert relations["true_cov"] == relations["true_cov"]' "Invalid covariance matrix"
+    length(relations["true_cov"]) > 1 &&
+        @assert relations["true_cov"] == relations["true_cov"]' "Invalid covariance matrix"
 
     if length(relations["true_cov"]) < 1
         n = length(event_ids) - 1
         # taken from https://discourse.julialang.org/t/generate-a-positive-definite-matrix/48582
-        A = randn(n,n); A = A'*A; A = (A + A')/2
+        A = randn(n, n)
+        A = A' * A
+        A = (A + A') / 2
         relations["auto_corr"] = A
     end
 
     nom_cols = relations["nominal"]
 
     # define distribution cov
-    true_cov = length(relations["true_cov"]) > 1 ? relations["true_cov"] : relations["auto_corr"]
+    true_cov =
+        length(relations["true_cov"]) > 1 ? relations["true_cov"] : relations["auto_corr"]
     @assert size(true_cov)[1] == length(event_ids) - 1 "incorrect covariance matrix"
     # define distribution mean
     _mean = means(Float64, size(true_cov)[1])
@@ -75,7 +86,12 @@ function simulate_events(
     X = hcat(ones(ntrials), X')
     col_names = [Symbol(v) for (_, v) in sort(event_ids)]
     events = DataFrame(X, col_names)
-    events[:, nom_cols] .= round.(Int, events[!, nom_cols]) 
+
+    # normalize and round categorical events
+    X = Matrix(events[!, nom_cols])
+    dt = fit(UnitRangeTransform, X, dims = 1) # axis = columns
+    events[:, nom_cols] .= round.(Int, StatsBase.transform(dt, X))
+
     return events
 
 end
@@ -84,26 +100,34 @@ end
 function simulate_epochs_data(
     ntime,
     nchannels,
-    events,
-    sampling_rate = 1;
+    events;
+    sampling_rate = 1,
+    coef = shuffle(Vector(0:3)), # define channel weights
     noise_generator = random_noise,
     windows = hanning_windows,
 )
     # signal
-    b = windows(ntime)
-    # define weights
-    coef = [0, 3, 1, 2.0]
+    basisfunc = windows(ntime)
+
     # trials
     ntrials = size(events, 1)
 
     @assert size(events, 2) == length(coef) "unequal covariates and weights"
 
-    Yhat = Matrix(events) * (repeat(b', size(events, 2)) .* coef)
+    Yhat = Matrix(events) * (repeat(basisfunc', size(events, 2)) .* coef)
 
     noise = noise_generator(nchannels, ntime, ntrials)
 
     Yhat = reshape(Yhat', 1, ntime, ntrials)
-    beta = repeat(Yhat, nchannels) + noise
+    beta = repeat(Yhat, nchannels)
+
+    mean_sig, std_sig = mean_and_std(beta)
+    mean_noise, std_noise = mean_and_std(noise)
+   
+    sig_to_noise = (mean_sig - mean_noise) / (std_sig + std_noise)
+    @info "Signal to Noise Ratio $(sig_to_noise)"
+
+    beta = beta + noise
     times = range(1, stop = ntime, step = 1 / sampling_rate)
 
     return SimulationData(events, beta, times)
@@ -111,19 +135,19 @@ end
 
 # main function
 function run_sim()
-    event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
-    event_rels = Dict{String, Union{Vector, Matrix{Float64}}}(
+    event_ids =
+        Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
+    event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
         "auto_corr" => [],
         "nominal" => [2],
-        "qualitative" => [3, 4],
-        "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1]
+        "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1],
     )
 
-    events = simulate_events(50, event_ids, event_rels)
+    events = simulate_events(200, event_ids, event_rels)
     sim_data = simulate_epochs_data(100, 30, events)
     se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
 
-    frm = @formula 0~1 + condA + catA
+    frm = @formula 0~1 + condA + condB
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
     @info "fit mass-univariate model"
@@ -140,3 +164,13 @@ function run_sim()
 end
 
 run_sim()
+
+event_ids = Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
+event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
+    "auto_corr" => [],
+    "nominal" => [2],
+    "qualitative" => [3, 4],
+    "true_cov" => [1 0.5 0.2; 0.5 1 0.3; 0.2 0.3 1],
+)
+eventsa = simulate_events(50, event_ids, event_rels)
+sim_datasa = simulate_epochs_data(100, 30, eventsa)
