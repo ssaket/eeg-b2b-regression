@@ -1,4 +1,3 @@
-module B2BRegression
 # imports
 using Unfold, StatsModels
 include("utils.jl")
@@ -128,26 +127,16 @@ function start_regression()
     end
 
     f = @formula 0~1 + sac_amplitude + sac_vmax + humanface
-    # plot_massunivariate_gamma(path, f)
+    plot_massunivariate_gamma(path, f)
     
-    plot_timeexpansion_gamma(
-        path,
-        "type",
-        Dict(
-            "sac_amplitude" => (
-                (@formula 0~1 + sac_amplitude + sac_vmax),
-                firbasis(τ = (-1, 1), sfreq = 128, name = "basisA"),
-            ),
-        ),
-    )
-end
-
-include("simulation.jl")
-export get_massunivariate_gamma,
-    plot_massunivariate_gamma,
-    get_timeexpansion_gamma,
-    plot_timeexpansion_gamma,
-    simulate_events,
-    simulate_epochs_data,
-    run_simulation
+    # plot_timeexpansion_gamma(
+    #     path,
+    #     "type",
+    #     Dict(
+    #         "sac_amplitude" => (
+    #             (@formula 0~1 + sac_amplitude + sac_vmax),
+    #             firbasis(τ = (-1, 1), sfreq = 128, name = "basisA"),
+    #         ),
+    #     ),
+    # )
 end

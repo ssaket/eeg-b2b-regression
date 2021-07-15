@@ -104,7 +104,9 @@ function simulate_epochs_data(
     nchannels,
     events;
     sampling_rate = 1,
-    coef = shuffle(Vector(0:3)), # define channel weights
+    # define coefficients, we use shuffle to permute the coefficients to 
+    # when running multiple simulations at the same time.
+    coef = shuffle(Vector(0:3)),
     noise_generator = random_noise,
     windows = bartlett_hann_windows,
     padding = 0
@@ -139,7 +141,7 @@ end
 # main function
 function run_simulation(num=1, times=200, trials=300, channels=30)
     res = []
-    for i in 0:num
+    for i in 1:num
         event_ids =
             Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
         event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
