@@ -1,7 +1,8 @@
-using PyMNE, DataFrames, Debugger
-using MAT, DelimitedFiles
+using PyMNE, DataFrames, Flux, Unfold
+using MAT, DelimitedFiles, MLJLinearModels
 using AlgebraOfGraphics, GLMakie
 using CairoMakie
+using LinearAlgebra
 # if, for example, GLMakie is activated already
 CairoMakie.activate!()
 
@@ -49,7 +50,13 @@ function read_eeglab_old(filename)
 end
 
 
-function read_eeglab(filename::String, sfreq::Int64; cols::Array{String} = String[], mne::Bool = false, type::Type = Float64)
+function read_eeglab(
+    filename::String,
+    sfreq::Int64;
+    cols::Array{String} = String[],
+    mne::Bool = false,
+    type::Type = Float64,
+)
 
     file = MAT.matopen(filename)
     EEG = read(file, "EEG")  # open file
@@ -64,13 +71,16 @@ function read_eeglab(filename::String, sfreq::Int64; cols::Array{String} = Strin
             return x
         end
     end
-    
-    events = DataFrame(map(x -> dropdims(x, dims = 1), values(evt_cols)), collect(keys(evt_cols)))
+
+    events = DataFrame(
+        map(x -> dropdims(x, dims = 1), values(evt_cols)),
+        collect(keys(evt_cols)),
+    )
 
     @info "Event types"
     map(x -> events[!, x] = cast_type(events[!, x], type), names(events))
     println(describe(events))
-    
+
     raw = PyMNE.io.read_raw_eeglab(filename)
     raw.resample(sfreq) # for speed
     events[!, :latency] .= raw.annotations.onset .* sfreq #add latency
@@ -117,4 +127,144 @@ function plot_results(
     end
     return d
 
+end
+
+# Custom linear regression function
+function linear_default_solver(data, X)
+
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        theta = data \ y
+        r = y - data * theta
+        e = sqrt(sum(abs2.(r)) / size(data, 1))
+        # @info "rmse: $(e)"
+        G[:, pred] = theta
+    end
+    return G
+end
+# Linear regression using MLJLinearModels, produces same output as above function
+function linear_solver(data, X)
+    
+    linear = LinearRegression(fit_intercept = false)
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        theta = MLJLinearModels.fit(linear, data, y)
+        r = y - data * theta
+        e = sqrt(sum(abs2.(r)) / size(data, 1))
+        # @info "rmse: $(e)"
+        G[:, pred] = theta
+    end
+    return G
+end
+
+# Lasso regularization
+function linear_lasso_solver(data, X; lambda = 0.1)
+
+    lasso =
+        LassoRegression(lambda = lambda, fit_intercept = false, penalize_intercept = false)
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        theta = MLJLinearModels.fit(lasso, data_norm, y)
+        r = y - data * theta
+        e = sqrt(sum(abs2.(r)) / size(data, 1))
+        # @info "rmse: $(e)"
+        G[:, pred] = theta
+    end
+    return G
+end
+
+# Ridge regularization
+function linear_ridge_solver(data, X; lambda = 2.3)
+    ridge =
+        RidgeRegression(lambda = lambda, fit_intercept = false, penalize_intercept = false)
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        theta = MLJLinearModels.fit(ridge, data, y)
+        r = y - data * theta
+        e = sqrt(sum(abs2.(r)) / size(data, 1))
+        # @info "rmse: $(e)"
+        G[:, pred] = theta
+    end
+    return G
+end
+
+function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
+    elastic = ElasticNetRegression(
+        lambda = lambda,
+        gamma = gamma,
+        fit_intercept = false,
+        penalize_intercept = false,
+    )
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        theta = MLJLinearModels.fit(ridge, data, y)
+        r = y - data * theta
+        e = sqrt(sum(abs2.(r)) / size(data, 1))
+        # @info "rmse: $(e)"
+        G[:, pred] = theta
+    end
+    return G
+end
+
+map_solver = Dict(
+    "l1" => linear_ridge_solver,
+    "l2" => linear_lasso_solver,
+    "l3" => linear_elastic_solver,
+    "l0" => linear_solver,
+    "_" => linear_default_solver,
+)
+
+function solver_b2b(
+    X,
+    data::AbstractArray{T,3};
+    cross_val_reps = 5,
+    solver = (a, b, c) -> map_solver[c](a, b),
+) where {T<:Union{Missing,<:Number}}
+
+    X, data = Unfold.dropMissingEpochs(X, data)
+    # standardize the data, important when using regularization
+    # https://stats.stackexchange.com/questions/287370/standardization-vs-normalization-for-lasso-ridge-regression
+    X = Flux.normalise(X, dims = 1) # uses StatsBase Z-score to standardize ((X - mean) / sd)
+    data = Flux.normalise(data, dims = 1)
+
+    E = zeros(size(data, 2), size(X, 2), size(X, 2))
+    W = Array{Float64}(undef, size(data, 2), size(X, 2), size(data, 1))
+
+    prog = Unfold.Progress(size(data, 2) * cross_val_reps, 0.1)
+    for t = 1:size(data, 2)
+
+        for m = 1:cross_val_reps
+            k_ix = collect(Unfold.Kfold(size(data, 3), 2))
+            Y1 = data[:, t, k_ix[1]]'
+            Y2 = data[:, t, k_ix[2]]'
+            X1 = X[k_ix[1], :]
+            X2 = X[k_ix[2], :]
+
+
+            G = solver(Y1, X1, "l1")
+            H = solver(X2, (Y2 * G), "l1")
+
+            E[t, :, :] = E[t, :, :] + Diagonal(H[diagind(H)])
+            Unfold.ProgressMeter.next!(prog; showvalues = [(:time, t), (:cross_val_rep, m)])
+        end
+        E[t, :, :] = E[t, :, :] ./ cross_val_reps
+        W[t, :, :] = solver((X * E[t, :, :]), data[:, t, :]', "l0")
+
+    end
+
+    # extract diagonal
+    beta = mapslices(diag, E, dims = [2, 3])
+    # reshape to conform to ch x time x pred
+    beta = permutedims(beta, [3 1 2])
+    modelinfo = Dict("W" => W, "E" => E, "cross_val_reps" => cross_val_reps) # no history implemented (yet?)
+    return beta, modelinfo
 end

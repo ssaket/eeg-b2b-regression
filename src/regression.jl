@@ -22,7 +22,7 @@ function get_massunivariate_gamma(
     @info "cutting data into epochs"
     beta, times = Unfold.epoch(data = data, tbl = events, τ = τ, sfreq = sfreq) # cut the data into epochs
     beta[:, :, isnan.(events.sac_vmax)] .= missing # to run with sac_vmax
-    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = cross_val_reps)
+    se_solver = (x, y) -> solver_b2b(x, y, cross_val_reps = cross_val_reps)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
     @info "fitting mass-univariate model"
@@ -53,7 +53,7 @@ function plot_massunivariate_gamma(
     @info "cutting data into epochs"
     beta, times = Unfold.epoch(data = data, tbl = events, τ = τ, sfreq = sfreq)
     beta[:, :, isnan.(events.sac_vmax)] .= missing
-    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = cross_val_reps)
+    se_solver = (x, y) -> solver_b2b(x, y, cross_val_reps = cross_val_reps)
 
     # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
     @info "fitting mass-univariate model"
@@ -126,7 +126,7 @@ function start_regression()
         path = "/store/data/WLFO/derivatives/preproc_agert/sub-45/eeg/sub-45_task-WLFO_eeg.set"
     end
 
-    f = @formula 0~1 + sac_amplitude + sac_vmax + humanface
+    f = @formula 0~1 + sac_amplitude + sac_vmax
     plot_massunivariate_gamma(path, f)
     
     # plot_timeexpansion_gamma(

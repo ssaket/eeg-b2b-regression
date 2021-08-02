@@ -168,10 +168,13 @@ begin
 	res[2,:estimate] = -0.5
 	# h = plot(res.colname_basis[ix],res.estimate[ix],color="green")
 	# plot(res.colname_basis[ix],res.estimate[ix],color=res.group)
-	h = B2BRegression.plot_results(res,color=:group)
+	h = B2BRegression.plot_results(res,layout_x=:basisname, color=:group)
 	
 	# ylims!(h.grid[1,1].axis,-1.,1)
 end
+
+# ╔═╡ 3b70dfc7-0b07-4571-b07b-b3d456eee580
+res
 
 # ╔═╡ Cell order:
 # ╟─5c6c3a6a-ebc4-4e15-8b8b-82b8ed7b173b
@@ -186,7 +189,7 @@ end
 # ╠═a93601a2-1068-4b60-ac8e-3518def6c1f2
 # ╟─5dbfc7f4-743a-4add-af4a-a7b062e64730
 # ╟─6092a08d-ea7b-4e81-bda9-ef64d4b52efa
-# ╠═49a39dde-8600-47a4-9cc2-2960cc36c963
+# ╟─49a39dde-8600-47a4-9cc2-2960cc36c963
 # ╠═b3a8b686-267a-4c7f-ba89-e2cc04236ace
 # ╠═648ef3c8-be32-4cbd-97d0-90f21a93451d
 # ╟─f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
@@ -195,4 +198,5 @@ end
 # ╠═6c5a98e7-81c6-4d37-b5ff-81a966c26002
 # ╠═3f1c2145-60c5-4127-b906-109f997679fc
 # ╟─4baa7e56-d6e5-406a-8c74-483469d18b68
+# ╠═3b70dfc7-0b07-4571-b07b-b3d456eee580
 # ╠═a62d2a6c-533f-4591-b29a-0f2d980eda99
