@@ -216,9 +216,9 @@ function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
 end
 
 map_solver = Dict(
-    "l1" => linear_ridge_solver,
-    "l2" => linear_lasso_solver,
-    "l3" => linear_elastic_solver,
+    "l1" => linear_lasso_solver,
+    "l2" => linear_ridge_solver,
+    "elastic" => linear_elastic_solver,
     "l0" => linear_solver,
     "_" => linear_default_solver, # note to self: remove this after I have agained confidence in MLJLinearModels default linear solver
 )
@@ -233,7 +233,7 @@ function solver_b2b(
     X, data = Unfold.dropMissingEpochs(X, data)
     # standardize the data, important when using regularization
     # https://stats.stackexchange.com/questions/287370/standardization-vs-normalization-for-lasso-ridge-regression
-    X = Flux.normalise(X, dims = 1) # uses StatsBase Z-score to standardize ((X - mean) / sd)
+    X[:,2:end] = Flux.normalise(X[:,2:end], dims = 1) # uses StatsBase Z-score to standardize ((X - mean) / sd)
     data = Flux.normalise(data, dims = 1)
 
     E = zeros(size(data, 2), size(X, 2), size(X, 2))
