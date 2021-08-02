@@ -215,13 +215,54 @@ function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
     return G
 end
 
+# experimental only, substitute for linear SVM
+function neural_net_solver(data, X)
+    G = Array{Float64}(undef, size(data, 2), size(X, 2))
+    @info "neural net solver"
+
+    for pred = 1:size(X, 2)
+        y = X[:, pred]
+        @info "training for y col $(pred)"
+        data2D = [(data[i,:],y[i]) for i in 1:size(data, 1)]
+        data2D = gpu.(data2D)
+        model = Chain(Dense(size(data, 2), 1, identity)) |> gpu # depth=1
+        loss(x, y) = Flux.mse(model(x), y) 
+        evalcb = () -> @show(sum([loss(i[1],i[2]) for i in data2D]))
+        opt = ADAM(0.01)
+        for i=1:2 #epochs
+            Flux.train!(loss, params(model), data2D, opt, cb = Flux.throttle(evalcb, 1000)) 
+        end
+        # @info Flux.params(model)
+        theta, bias = Flux.params(model)
+        G[:, pred] = theta
+    end
+    return G
+end
+
 map_solver = Dict(
     "l1" => linear_lasso_solver,
     "l2" => linear_ridge_solver,
     "elastic" => linear_elastic_solver,
     "l0" => linear_solver,
+    "nn" => neural_net_solver,
     "_" => linear_default_solver, # note to self: remove this after I have agained confidence in MLJLinearModels default linear solver
 )
+
+function feature_importance(X, data, H, G)
+    k_ix = collect(Unfold.Kfold(size(data, 3), 2))
+    Y1 = data[:, t, k_ix[1]]'
+    Y2 = data[:, t, k_ix[2]]'
+    X1 = X[k_ix[1], :]
+    X2 = X[k_ix[2], :]
+
+    R_full = cor(X2*H, y2*G)
+    for i = 1:size(X1, 2)
+        K = I
+        R_k = cor(X2*K*H, Y2*G[:,i])
+        δR[i] = R_full - R_k
+    end
+    return δR
+end
 
 function solver_b2b(
     X,
@@ -250,8 +291,8 @@ function solver_b2b(
             X2 = X[k_ix[2], :]
 
 
-            G = solver(Y1, X1, "l1")
-            H = solver(X2, (Y2 * G), "l1")
+            G = solver(Y1, X1, "l2")
+            H = solver(X2, (Y2 * G), "l2")
 
             E[t, :, :] = E[t, :, :] + Diagonal(H[diagind(H)])
             Unfold.ProgressMeter.next!(prog; showvalues = [(:time, t), (:cross_val_rep, m)])
