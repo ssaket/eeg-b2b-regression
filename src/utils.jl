@@ -145,7 +145,7 @@ function linear_default_solver(data, X)
 end
 # Linear regression using MLJLinearModels, produces same output as above function
 function linear_solver(data, X)
-    
+
     linear = LinearRegression(fit_intercept = false)
     G = Array{Float64}(undef, size(data, 2), size(X, 2))
 
@@ -220,7 +220,7 @@ map_solver = Dict(
     "l2" => linear_lasso_solver,
     "l3" => linear_elastic_solver,
     "l0" => linear_solver,
-    "_" => linear_default_solver,
+    "_" => linear_default_solver, # note to self: remove this after I have agained confidence in MLJLinearModels default linear solver
 )
 
 function solver_b2b(
