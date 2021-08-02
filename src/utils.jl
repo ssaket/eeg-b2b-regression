@@ -161,7 +161,7 @@ function linear_solver(data, X)
 end
 
 # Lasso regularization
-function linear_lasso_solver(data, X; lambda = 0.1)
+function linear_lasso_solver(data, X; lambda = 3.1)
 
     lasso =
         LassoRegression(lambda = lambda, fit_intercept = false, penalize_intercept = false)
@@ -169,7 +169,7 @@ function linear_lasso_solver(data, X; lambda = 0.1)
 
     for pred = 1:size(X, 2)
         y = X[:, pred]
-        theta = MLJLinearModels.fit(lasso, data_norm, y)
+        theta = MLJLinearModels.fit(lasso, data, y)
         r = y - data * theta
         e = sqrt(sum(abs2.(r)) / size(data, 1))
         # @info "rmse: $(e)"
