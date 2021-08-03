@@ -19,6 +19,27 @@ multivariate_ndis(
 random_noise(nchannels, ntime, ntrials) = (noiseLevels = Array(1:nchannels) ./ nchannels;
     noiseLevels .* randn(nchannels, ntime, ntrials))
 
+# Pink Noise
+function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=30)
+
+    freq = range(min_freq, max_freq, length=steps)
+    noise = zeros(nchannels, ntime, ntrials)
+    c_list = [1,2,3]
+    sin_amp = (theta) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
+
+    for ch=1:nchannels
+        c = rand(c_list)
+        for fi=1:size(freq,1)
+            amp = 1/freq[fi]^c
+            for t=1:ntime
+                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t) for tr in ntrials]
+            end
+        end
+    end
+    # lines(reshape(pink_noise(1, 30, 5), 1,:)[:])
+    return noise    
+end
+
 # Events mean and covariance
 mutable struct EventStatsMatrix
     mean::Matrix{Float64}
