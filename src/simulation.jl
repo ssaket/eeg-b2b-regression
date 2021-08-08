@@ -24,14 +24,17 @@ function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=
 
     freq = range(min_freq, max_freq, length=steps)
     noise = zeros(nchannels, ntime, ntrials)
-    c_list = [1,2,3]
+    c_list = [1,2]
+    # sine wave with random phase
     sin_amp = (theta) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
 
     for ch=1:nchannels
         c = rand(c_list)
         for fi=1:size(freq,1)
+            # amplitude = 1/f^c
             amp = 1/freq[fi]^c
             for t=1:ntime
+                # summation
                 noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t) for tr in ntrials]
             end
         end
