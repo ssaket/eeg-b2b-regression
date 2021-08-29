@@ -1,2 +1,0 @@
-# Playground for code testing
-
