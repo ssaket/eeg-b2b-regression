@@ -26,7 +26,7 @@ function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=
     noise = zeros(nchannels, ntime, ntrials)
     c_list = [1,2]
     # sine wave with random phase
-    sin_amp = (theta) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
+    sin_amp = (theta, amp) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
 
     for ch=1:nchannels
         c = rand(c_list)
@@ -35,7 +35,7 @@ function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=
             amp = 1/freq[fi]^c
             for t=1:ntime
                 # summation
-                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t) for tr in ntrials]
+                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t, amp) for tr in ntrials]
             end
         end
     end
@@ -115,7 +115,7 @@ function simulate_events(
 
     # normalize and round categorical events
     X = Matrix(events[!, nom_cols])
-    dt = fit(UnitRangeTransform, X, dims = 1) # axis = columns
+    dt = StatsBase.fit(UnitRangeTransform, X, dims = 1) # axis = columns
     events[:, nom_cols] .= round.(Int, StatsBase.transform(dt, X))
 
     return events

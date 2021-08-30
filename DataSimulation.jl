@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.14.8
+# v0.15.1
 
 using Markdown
 using InteractiveUtils
@@ -13,12 +13,17 @@ macro bind(def, element)
     end
 end
 
+# ╔═╡ 7225361a-6402-4cca-ad8f-05b7a142eb1d
+let
+	using Pkg;
+	Pkg.activate(".") #pluto doesn't activate the env by default
+end
+
 # ╔═╡ f640d374-4b5e-4203-9595-e5df278c1bce
-using Unfold, StatsModels
+using Unfold, StatsModels, PlutoUI
 
 # ╔═╡ 0dedba95-afef-4532-b2c7-1717942d6fc1
 begin
-	import PlutoUI
 	using CairoMakie
 	CairoMakie.activate!()
 end
@@ -179,6 +184,7 @@ res
 # ╔═╡ Cell order:
 # ╟─5c6c3a6a-ebc4-4e15-8b8b-82b8ed7b173b
 # ╟─7e41d082-e5a1-11eb-2ab8-e1c33faf9365
+# ╠═7225361a-6402-4cca-ad8f-05b7a142eb1d
 # ╠═f640d374-4b5e-4203-9595-e5df278c1bce
 # ╠═0dedba95-afef-4532-b2c7-1717942d6fc1
 # ╟─e0d21513-c591-4c10-82c0-2579a721167b
