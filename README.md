@@ -8,9 +8,13 @@ There are broadly two categories of EEG analyses: Decoding, `f(brain) = stimulus
 
 ## Steps
 
-- We apply back-2-back regression [[`regression.jl`]](./regression.jl) on ground truth data with the help of [Unfold.jl](https://github.com/unfoldtoolbox/unfold.jl)
-- We simulate data [[`simulation.jl`]](./simulation.jl), and again apply back-2-back regression to find significant **'face effect'**.
-- We use [Pluto.jl](https://github.com/fonsp/Pluto.jl) notebook [[`analysis.jl`]](./analysis.jl) to analyse our result.
+We use [Pluto.jl](https://github.com/fonsp/Pluto.jl) notebooks to analyse our result.
+
+- We simulate EEG data [[`DataSimulation.jl`]](./DataSimulation.jl), and apply back-2-back regression using regularized(L1, L2, Elastic) and un-regularized solvers with the help of [Unfold.jl](https://github.com/unfoldtoolbox/unfold.jl). We also explore single layer neural network solver.
+
+- We apply back-2-back regression [[`DataAnalysis.jl`]](./DataAnalysis.jl) on ground truth data to disentangle the effects of continuous correlated predictors and uncorrelated categorical predictor.
+
+- We generate [saliency maps](./saliency/README.md) and analyse saliency scores.
 
 ## Setup
 
@@ -21,6 +25,12 @@ julia> # julia REPL
 julia> ]  # enter pkg mode
 > activate .
 > instantiate
+ ```
+
+ To run Pluto
+ ```julia
+julia> import Pluto;
+julia> Pluto.run()
  ```
 
 ## References
