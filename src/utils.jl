@@ -99,6 +99,7 @@ function plot_results(
     color = :term,
     layout_x = :group,
     stderror = false,
+    ax = 0,
     pvalue = DataFrame(:from => [], :to => [], :pval => []),
 )
     m = mapping(:colname_basis, y, color = color, layout_x = layout_x)
@@ -117,7 +118,12 @@ function plot_results(
             basic
     end
 
-    d = basic |> draw
+    if ax != 0
+        d = draw(basic; axis=ax)
+    else
+        d = basic |> draw
+    end
+
 
     # add the pvalues
     if !isempty(pvalue)
@@ -144,7 +150,7 @@ function linear_default_solver(data, X)
     return G
 end
 # Linear regression using MLJLinearModels, produces same output as above function
-function linear_solver(data, X)
+function linear_solver(data, X; lambda=0)
 
     linear = LinearRegression(fit_intercept = false)
     G = Array{Float64}(undef, size(data, 2), size(X, 2))
@@ -216,7 +222,7 @@ function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
 end
 
 # experimental only, substitute for linear SVM
-function neural_net_solver(data, X)
+function neural_net_solver(data, X; lambda=0)
     G = Array{Float64}(undef, size(data, 2), size(X, 2))
     @info "neural net solver"
 
@@ -267,8 +273,12 @@ end
 function solver_b2b(
     X,
     data::AbstractArray{T,3};
-    cross_val_reps = 5,
-    solver = (a, b, c) -> map_solver[c](a, b),
+    cross_val_reps::Int64 = 5,
+    reg_1::String = "l0",
+    reg_2::String = "l0",
+    reg_3::String = "l0",
+    alpha = 0.1,
+    solver = (a, b, c, alpha) -> map_solver[c](a, b, lambda=alpha),
 ) where {T<:Union{Missing,<:Number}}
 
     X, data = Unfold.dropMissingEpochs(X, data)
@@ -291,14 +301,14 @@ function solver_b2b(
             X2 = X[k_ix[2], :]
 
 
-            G = solver(Y1, X1, "l2")
-            H = solver(X2, (Y2 * G), "l2")
+            G = solver(Y1, X1, reg_1, alpha)
+            H = solver(X2, (Y2 * G), reg_2, alpha)
 
             E[t, :, :] = E[t, :, :] + Diagonal(H[diagind(H)])
             Unfold.ProgressMeter.next!(prog; showvalues = [(:time, t), (:cross_val_rep, m)])
         end
         E[t, :, :] = E[t, :, :] ./ cross_val_reps
-        W[t, :, :] = solver((X * E[t, :, :]), data[:, t, :]', "l0")
+        W[t, :, :] = solver((X * E[t, :, :]), data[:, t, :]', reg_3, alpha)
 
     end
 

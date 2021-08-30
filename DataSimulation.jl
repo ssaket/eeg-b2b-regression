@@ -49,9 +49,22 @@ md"""
 Load B2BRegression Module
 """
 
+# ╔═╡ f44fd85e-ff97-4ba1-9f9a-691a0fb0bb2a
+md"""
+## Define regularized and un-regularized gamma
+"""
+
 # ╔═╡ a5787343-4444-49ac-969c-3b024e5dea4b
 function get_gamma(f, events, beta, times)
 	se_solver = solver = (x, y) -> Unfold.solver_b2b(x, y,cross_val_reps = 5)
+	model, results_expanded = Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver=se_solver)
+	return(model, results_expanded)
+end
+	
+
+# ╔═╡ c7eee6ca-4d51-4afe-a7cf-aefe93555561
+function get_reg_gamma(f, events, beta, times, reg_1, reg_2, reg_3, alpha)
+	se_solver = solver = (x, y) -> B2BRegression.solver_b2b(x, y, cross_val_reps = 5, reg_1 = reg_1, reg_2 = reg_2, reg_3 = reg_3, alpha = alpha)
 	model, results_expanded = Unfold.fit(UnfoldLinearModel, f, events, beta, times, solver=se_solver)
 	return(model, results_expanded)
 end
@@ -66,12 +79,10 @@ Define covariates and their relation
 event_ids =
         Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
 
-# ╔═╡ a93601a2-1068-4b60-ac8e-3518def6c1f2
- event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
-        "auto_corr" => [],
-        "nominal" => [2],
-        "true_cov" => [1 0.3 0.0; 0.3 1 0.; 0.0 0.0 1],
-    )
+# ╔═╡ 89f23206-b095-420e-887b-67ebc53d906b
+md"""
+### Dynamic events -> change correlation using slider
+"""
 
 # ╔═╡ 5dbfc7f4-743a-4add-af4a-a7b062e64730
 begin
@@ -79,7 +90,9 @@ begin
 	sl_trials = @bind ntrials PlutoUI.Slider(0:5:600, default=100);
 	sl_channels = @bind nchannels PlutoUI.Slider(1:1:40, default=30);
 	
-	md""" **Define number of trials, channels and times**
+	md""" 
+	
+	## Define number of trials, channels and times
 	
 	Times: $(sl_times)
 	
@@ -102,10 +115,54 @@ Events table
 """
 
 # ╔═╡ b3a8b686-267a-4c7f-ba89-e2cc04236ace
-evts = B2BRegression.simulate_events(ntrials, event_ids, event_rels)
+begin
+	 event_rels_fixed = Dict{String,Union{Vector,Matrix{Float64}}}(
+	        "auto_corr" => [],
+	        "nominal" => [2],
+	        "true_cov" => [1 0.4 0.0; 0.4 1 0.; 0.0 0.0 1],
+	    )
+	evts = B2BRegression.simulate_events(ntrials, event_ids, event_rels_fixed)
+end
 
 # ╔═╡ 648ef3c8-be32-4cbd-97d0-90f21a93451d
-sim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts)
+sim_data_pink = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts, noise_generator=B2BRegression.pink_noise);
+
+# ╔═╡ 7f386026-c7ee-4535-a55c-dbe518b8653e
+sim_data_white = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts);
+
+# ╔═╡ 2a3999dc-d648-4337-8420-004c1eb02588
+# Pink Noise
+function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=30)
+
+    freq = range(min_freq, max_freq, length=steps)
+    noise = zeros(nchannels, ntime, ntrials)
+    c_list = [1,2]
+    # sine wave with random phase
+    sin_amp = (theta, amp) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
+
+    for ch=1:nchannels
+        c = rand(c_list)
+        for fi=1:size(freq,1)
+            # amplitude = 1/f^c
+            amp = 1/freq[fi]^c
+            for t=1:ntime
+                # summation
+                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t, amp) for tr in ntrials]
+            end
+        end
+    end
+    return noise    
+end
+
+# ╔═╡ 52963b4d-629c-4ffa-9a53-67a6f79f56f1
+lines(reshape(pink_noise(1, 300, 1), 1,:)[:])
+
+# ╔═╡ f35f29ed-b33a-43ff-821e-54b417557dd7
+random_noise(nchannels, ntime, ntrials) = (noiseLevels = Array(1:nchannels) ./ nchannels;
+    noiseLevels .* randn(nchannels, ntime, ntrials))
+
+# ╔═╡ 913413d8-2ad6-4e4e-a746-1f5889b6345d
+lines(reshape(random_noise(1, 300, 1), 1,:)[:])
 
 # ╔═╡ f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
 begin
@@ -117,51 +174,85 @@ begin
 	
 end
 
-# ╔═╡ 5ef21ab4-dcee-4273-8bf6-5faaea31f612
-heatmap(sim_data.epochs[:,:,slt]')
+# ╔═╡ 19b03386-84d5-4bb3-a91e-618365ece88c
+heatmap(sim_data_white.epochs[:,:,slt])
 
-# ╔═╡ 3f1c2145-60c5-4127-b906-109f997679fc
-B2BRegression.run_simulation(10)
+# ╔═╡ 892c50b7-01d4-4293-ab73-a16ab10f6acf
+begin
+	f = Figure(backgroundcolor = RGBf(0.98, 0.98, 0.98),
+	    resolution = (1000, 700))
+	ax = f[1, 2] = GridLayout()
+	plt_left = Axis(ax[1, 1])
+	plt_right = Axis(ax[1, 2])
+end
+
+# ╔═╡ 4c5421f8-7dbf-4ef7-9b17-023ef75c38ec
+md"""
+# Simulation Comparision
+"""
+
+# ╔═╡ 448af3c2-6869-4845-88f7-a85deb86efc9
+md"""
+## Not Regularized
+"""
+
+# ╔═╡ 54193936-1063-49ca-af83-bed411fa94b4
+md"""
+## Regularized
+"""
 
 # ╔═╡ 4baa7e56-d6e5-406a-8c74-483469d18b68
-begin	
-	md"""
-	inter 
-	$(@bind inter PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
-	
-	correlation (correl) 
-	$(@bind corr PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
-	
-	condA (correl)
-	$(@bind condA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
-	
-	condB (uncorr) 
-	$(@bind condB PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
-	
-	catA 
-	$(@bind catA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
-	"""
-end
+md"""
+inter 
+$(@bind inter PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+correlation (correl) 
+$(@bind corr PlutoUI.Slider(-.9:.1:.9,default=0.6,show_value=true))
+
+condA (correl)
+$(@bind condA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+condB (uncorr) 
+$(@bind condB PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+catA 
+$(@bind catA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+alpha (regcoeff)
+$(@bind regcoff PlutoUI.Slider(0:.05:5,default=1,show_value=true))
+"""
+
+
+
+# ╔═╡ a93601a2-1068-4b60-ac8e-3518def6c1f2
+ event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
+        "auto_corr" => [],
+        "nominal" => [2],
+        "true_cov" => [1 corr 0.0; corr 1 0.; 0.0 0.0 1],
+    )
+
+# ╔═╡ 82eaf5bd-c4c8-4426-acdd-269d4aebcf3f
+devts = B2BRegression.simulate_events(ntrials, event_ids, event_rels)
 
 # ╔═╡ c2559de7-1bc2-4315-943d-e32adfe26a6b
 begin
 	f_sim_1 = @formula 0~1 + condA + condB
-	_, res_sim_1 = get_gamma(f_sim_1, sim_data.events, sim_data.epochs, sim_data.times);
-	pt_sim_1 = plot_results(res_sim_1,layout_x=:basisname)
+	_, res_sim_1 = get_gamma(f_sim_1, sim_data_white.events, sim_data_white.epochs, sim_data_white.times);
+	pt_sim_1 = B2BRegression.plot_results(res_sim_1,layout_x=:basisname)
 end
 
 # ╔═╡ 6c5a98e7-81c6-4d37-b5ff-81a966c26002
 begin
-	f_sim_2 = @formula 0~1 + catA + condB
-	_, res_sim_2 = get_gamma(f_sim_2, sim_data.events, sim_data.epochs, sim_data.times);
-	pt_sim_2 = plot_results(res_sim_2,layout_x=:basisname)
+	f_sim_2 = @formula 0~1 + catA + condA
+	_, res_sim_2 = get_gamma(f_sim_2, sim_data_white.events, sim_data_white.epochs, sim_data_white.times);
+	pt_sim_2 = B2BRegression.plot_results(res_sim_2,layout_x=:basisname)
 end
 
 # ╔═╡ a62d2a6c-533f-4591-b29a-0f2d980eda99
 begin
-	nsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts, coef=[inter,catA,condA,condB]);
+	nsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,condA,condB]);
 	
-	_, res_0 = get_gamma( @formula(0~1 + catA), nsim_data.events, nsim_data.epochs, sim_data.times);
+	_, res_0 = get_gamma( @formula(0~1 + catA), nsim_data.events, nsim_data.epochs, nsim_data.times);
 	_, res_1 = get_gamma(@formula(0~1 + catA+condA+condB), nsim_data.events, nsim_data.epochs, nsim_data.times);
 	
 	res_0[!,:group] .= "catAonly"
@@ -181,28 +272,62 @@ end
 # ╔═╡ 3b70dfc7-0b07-4571-b07b-b3d456eee580
 res
 
+# ╔═╡ 46c4c123-c827-4b59-861a-fa002dd22cd7
+begin
+	rnsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,condA,condB]);
+	
+	_, rres_0 = get_reg_gamma( @formula(0~1 + catA), rnsim_data.events, rnsim_data.epochs, rnsim_data.times, "l2", "l2", "l0", regcoff);
+	_, rres_1 = get_reg_gamma(@formula(0~1 + catA+condA+condB), rnsim_data.events, rnsim_data.epochs, rnsim_data.times, "l2", "l2", "l0", regcoff);
+	
+	rres_0[!,:group] .= "catAonly"
+	rres_1[!,:group] .= "full"
+	rres = vcat(rres_0,rres_1)
+	rix = rres.term .=="catA"
+	rres = rres[ix,:]
+	rres[1,:estimate] = 1.
+	rres[2,:estimate] = -0.5
+# 	# h = plot(res.colname_basis[ix],res.estimate[ix],color="green")
+# 	# plot(res.colname_basis[ix],res.estimate[ix],color=res.group)
+	rh = B2BRegression.plot_results(rres,layout_x=:basisname, color=:group)
+	
+	# ylims!(h.grid[1,1].axis,-1.,1)
+end
+
 # ╔═╡ Cell order:
 # ╟─5c6c3a6a-ebc4-4e15-8b8b-82b8ed7b173b
 # ╟─7e41d082-e5a1-11eb-2ab8-e1c33faf9365
-# ╠═7225361a-6402-4cca-ad8f-05b7a142eb1d
-# ╠═f640d374-4b5e-4203-9595-e5df278c1bce
-# ╠═0dedba95-afef-4532-b2c7-1717942d6fc1
+# ╟─7225361a-6402-4cca-ad8f-05b7a142eb1d
+# ╟─f640d374-4b5e-4203-9595-e5df278c1bce
+# ╟─0dedba95-afef-4532-b2c7-1717942d6fc1
 # ╟─e0d21513-c591-4c10-82c0-2579a721167b
-# ╠═6f7ff757-e79b-437a-b9fa-e1e5238cad90
-# ╠═a5787343-4444-49ac-969c-3b024e5dea4b
+# ╟─6f7ff757-e79b-437a-b9fa-e1e5238cad90
+# ╟─f44fd85e-ff97-4ba1-9f9a-691a0fb0bb2a
+# ╟─a5787343-4444-49ac-969c-3b024e5dea4b
+# ╟─c7eee6ca-4d51-4afe-a7cf-aefe93555561
 # ╟─5be5f59b-de28-47a2-a760-2f9e21feaaf5
-# ╠═1c5b20c7-f8ff-443b-9e72-5579101c0858
-# ╠═a93601a2-1068-4b60-ac8e-3518def6c1f2
+# ╟─1c5b20c7-f8ff-443b-9e72-5579101c0858
+# ╟─a93601a2-1068-4b60-ac8e-3518def6c1f2
+# ╟─89f23206-b095-420e-887b-67ebc53d906b
+# ╟─82eaf5bd-c4c8-4426-acdd-269d4aebcf3f
 # ╟─5dbfc7f4-743a-4add-af4a-a7b062e64730
 # ╟─6092a08d-ea7b-4e81-bda9-ef64d4b52efa
 # ╟─49a39dde-8600-47a4-9cc2-2960cc36c963
-# ╠═b3a8b686-267a-4c7f-ba89-e2cc04236ace
+# ╟─b3a8b686-267a-4c7f-ba89-e2cc04236ace
 # ╠═648ef3c8-be32-4cbd-97d0-90f21a93451d
+# ╠═7f386026-c7ee-4535-a55c-dbe518b8653e
+# ╟─2a3999dc-d648-4337-8420-004c1eb02588
+# ╠═52963b4d-629c-4ffa-9a53-67a6f79f56f1
+# ╠═f35f29ed-b33a-43ff-821e-54b417557dd7
+# ╟─913413d8-2ad6-4e4e-a746-1f5889b6345d
 # ╟─f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
-# ╠═5ef21ab4-dcee-4273-8bf6-5faaea31f612
+# ╠═19b03386-84d5-4bb3-a91e-618365ece88c
 # ╠═c2559de7-1bc2-4315-943d-e32adfe26a6b
 # ╠═6c5a98e7-81c6-4d37-b5ff-81a966c26002
-# ╠═3f1c2145-60c5-4127-b906-109f997679fc
-# ╟─4baa7e56-d6e5-406a-8c74-483469d18b68
 # ╠═3b70dfc7-0b07-4571-b07b-b3d456eee580
+# ╠═892c50b7-01d4-4293-ab73-a16ab10f6acf
+# ╟─4c5421f8-7dbf-4ef7-9b17-023ef75c38ec
+# ╟─448af3c2-6869-4845-88f7-a85deb86efc9
 # ╠═a62d2a6c-533f-4591-b29a-0f2d980eda99
+# ╟─54193936-1063-49ca-af83-bed411fa94b4
+# ╟─46c4c123-c827-4b59-861a-fa002dd22cd7
+# ╟─4baa7e56-d6e5-406a-8c74-483469d18b68

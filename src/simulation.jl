@@ -19,12 +19,13 @@ multivariate_ndis(
 random_noise(nchannels, ntime, ntrials) = (noiseLevels = Array(1:nchannels) ./ nchannels;
     noiseLevels .* randn(nchannels, ntime, ntrials))
 
+
 # Pink Noise
 function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=30)
 
     freq = range(min_freq, max_freq, length=steps)
     noise = zeros(nchannels, ntime, ntrials)
-    c_list = [1,2]
+    c_list = [1]
     # sine wave with random phase
     sin_amp = (theta, amp) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
 
@@ -132,7 +133,7 @@ function simulate_epochs_data(
     # when running multiple simulations at the same time.
     coef = shuffle(Vector(0:3)),
     noise_generator = random_noise,
-    windows = bartlett_hann_windows,
+    windows = hanning_windows,
     padding = 0
 )
     # signal

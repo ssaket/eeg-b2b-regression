@@ -1,11 +1,23 @@
 ### A Pluto.jl notebook ###
-# v0.14.8
+# v0.15.1
 
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ 46cec8f0-d30f-49aa-9501-685aab02f23d
+let
+	using Pkg;
+	Pkg.activate(".") #pluto doesn't activate the env by default
+end
+
 # ╔═╡ 04ddbcb7-5c2b-4c3b-8cf5-a5b294af8d64
 using Unfold, StatsModels
+
+# ╔═╡ 6eb82b93-d1b8-4c5a-beaf-892f40560fd8
+begin
+	using CairoMakie
+	CairoMakie.activate!()
+end
 
 # ╔═╡ 4493bf65-5fec-4be3-bff2-491c2562ce78
 include("src/utils.jl")
@@ -20,17 +32,13 @@ md"""
 ## Introduction
 """
 
-# ╔═╡ 6eb82b93-d1b8-4c5a-beaf-892f40560fd8
-using CairoMakie
-CairoMakie.activate!()
-
 # ╔═╡ 7f6c9361-dbf2-4fed-88f6-71c2add543aa
 md"""
 ### load data and events
 """
 
 # ╔═╡ 24e747ea-792c-41d1-9fba-eb7117ccce3a
-function load_data(sub = "sub-45")
+function load_data(sub = "sub-48")
 	path = "data/$(sub)/eeg/$(sub)_task-WLFO_eeg.set"
 	!isfile(path) && (path = "/store/data/WLFO/derivatives/preproc_agert/$(sub)/eeg/$(sub)_task-WLFO_eeg.set")
 	data, events = read_eeglab(path, 128)	
@@ -44,7 +52,7 @@ Filter events types to include only *Fixations*
 
 # ╔═╡ 1a2bdc3f-3faa-48db-9247-98b30b4da23e
 begin
-	data, events = load_data("sub-45")
+	data, events = load_data("sub-48")
 	events = events[events.type .== "fixation",:]
 end
 
@@ -172,6 +180,7 @@ B2BRegression.plot_massunivariate_gamma(
 # ╔═╡ Cell order:
 # ╟─369e1538-3855-4d0b-9b17-6f7dd32e9cc9
 # ╟─bf87faea-f9b3-4403-867a-422a57034d31
+# ╠═46cec8f0-d30f-49aa-9501-685aab02f23d
 # ╠═04ddbcb7-5c2b-4c3b-8cf5-a5b294af8d64
 # ╠═6eb82b93-d1b8-4c5a-beaf-892f40560fd8
 # ╠═4493bf65-5fec-4be3-bff2-491c2562ce78
