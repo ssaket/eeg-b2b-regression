@@ -155,14 +155,14 @@ function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=
 end
 
 # ╔═╡ 52963b4d-629c-4ffa-9a53-67a6f79f56f1
-lines(reshape(pink_noise(1, 300, 1), 1,:)[:])
+lines(reshape(pink_noise(1, 50, 3), 1,:)[:])
 
 # ╔═╡ f35f29ed-b33a-43ff-821e-54b417557dd7
 random_noise(nchannels, ntime, ntrials) = (noiseLevels = Array(1:nchannels) ./ nchannels;
     noiseLevels .* randn(nchannels, ntime, ntrials))
 
 # ╔═╡ 913413d8-2ad6-4e4e-a746-1f5889b6345d
-lines(reshape(random_noise(1, 300, 1), 1,:)[:])
+lines(reshape(random_noise(1, 50, 3), 1,:)[:])
 
 # ╔═╡ f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
 begin
@@ -316,8 +316,8 @@ end
 # ╠═648ef3c8-be32-4cbd-97d0-90f21a93451d
 # ╠═7f386026-c7ee-4535-a55c-dbe518b8653e
 # ╟─2a3999dc-d648-4337-8420-004c1eb02588
-# ╠═52963b4d-629c-4ffa-9a53-67a6f79f56f1
-# ╠═f35f29ed-b33a-43ff-821e-54b417557dd7
+# ╟─52963b4d-629c-4ffa-9a53-67a6f79f56f1
+# ╟─f35f29ed-b33a-43ff-821e-54b417557dd7
 # ╟─913413d8-2ad6-4e4e-a746-1f5889b6345d
 # ╟─f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
 # ╠═19b03386-84d5-4bb3-a91e-618365ece88c
@@ -327,7 +327,7 @@ end
 # ╠═892c50b7-01d4-4293-ab73-a16ab10f6acf
 # ╟─4c5421f8-7dbf-4ef7-9b17-023ef75c38ec
 # ╟─448af3c2-6869-4845-88f7-a85deb86efc9
-# ╠═a62d2a6c-533f-4591-b29a-0f2d980eda99
+# ╟─a62d2a6c-533f-4591-b29a-0f2d980eda99
 # ╟─54193936-1063-49ca-af83-bed411fa94b4
 # ╟─46c4c123-c827-4b59-861a-fa002dd22cd7
 # ╟─4baa7e56-d6e5-406a-8c74-483469d18b68

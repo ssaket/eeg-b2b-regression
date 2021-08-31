@@ -221,7 +221,7 @@ function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
     return G
 end
 
-# experimental only, substitute for linear SVM
+# experimental only, note to self: revisit this again - stupid way to fitting NN -> pred loop should be removed
 function neural_net_solver(data, X; lambda=0)
     G = Array{Float64}(undef, size(data, 2), size(X, 2))
     @info "neural net solver"
@@ -282,10 +282,10 @@ function solver_b2b(
 ) where {T<:Union{Missing,<:Number}}
 
     X, data = Unfold.dropMissingEpochs(X, data)
-    # standardize the data, important when using regularization
+    # standardize the data, important when doing regularization
     # https://stats.stackexchange.com/questions/287370/standardization-vs-normalization-for-lasso-ridge-regression
-    X[:,2:end] = Flux.normalise(X[:,2:end], dims = 1) # uses StatsBase Z-score to standardize ((X - mean) / sd)
-    data = Flux.normalise(data, dims = 1)
+    # uses StatsBase Z-score to standardize ((X - mean) / sd)
+    data = Flux.normalise(data, dims = 3)
 
     E = zeros(size(data, 2), size(X, 2), size(X, 2))
     W = Array{Float64}(undef, size(data, 2), size(X, 2), size(data, 1))
