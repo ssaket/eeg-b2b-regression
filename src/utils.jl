@@ -221,7 +221,7 @@ function linear_elastic_solver(data, X; lambda = 2.3, gamma = 1.4)
     return G
 end
 
-# experimental only, note to self: revisit this again - stupid way to fitting NN -> pred loop should be removed
+# experimental only, note to self: revisit this again - stupid way to fit NN -> pred loop should be removed
 function neural_net_solver(data, X; lambda=0)
     G = Array{Float64}(undef, size(data, 2), size(X, 2))
     @info "neural net solver"
