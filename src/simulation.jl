@@ -5,14 +5,14 @@ using Unfold, StatsModels
 include("utils.jl")
 
 # Signal windows
-hanning_windows(time, padding = 0) = DSP.Windows.hanning(time, padding = padding)
-lanczos_windows(time, padding = 0) = DSP.Windows.lanczos(time, padding = padding)
-bartlett_hann_windows(time, padding = 0) = DSP.Windows.bartlett_hann(time, padding = padding)
+hanning_windows(time, padding=0) = DSP.Windows.hanning(time, padding=padding)
+lanczos_windows(time, padding=0) = DSP.Windows.lanczos(time, padding=padding)
+bartlett_hann_windows(time, padding=0) = DSP.Windows.bartlett_hann(time, padding=padding)
 
 # Mutivariate Distribution
 multivariate_ndis(
-    means::Vector{Float64} = ones(2),
-    covr::Matrix{Float64} = [1 0.5; 0.5 1],
+    means::Vector{Float64}=ones(2),
+    covr::Matrix{Float64}=[1 0.5; 0.5 1],
 ) = MvNormal(means, covr)
 
 # Noise functions
@@ -27,16 +27,16 @@ function pink_noise(nchannels, ntime, ntrials; max_freq=150, min_freq=30, steps=
     noise = zeros(nchannels, ntime, ntrials)
     c_list = [1]
     # sine wave with random phase
-    sin_amp = (theta, amp) -> amp*sin(2*pi*theta + 2*rand(1)[1]*pi)
+    sin_amp = (theta, amp) -> amp * sin(2 * pi * theta + 2 * rand(1)[1] * pi)
 
-    for ch=1:nchannels
+    for ch = 1:nchannels
         c = rand(c_list)
-        for fi=1:size(freq,1)
+        for fi = 1:size(freq, 1)
             # amplitude = 1/f^c
-            amp = 1/freq[fi]^c
-            for t=1:ntime
+            amp = 1 / freq[fi]^c
+            for t = 1:ntime
                 # summation
-                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi]*t, amp) for tr in ntrials]
+                noise[ch,t,:] = noise[ch,t,:] .+ [ sin_amp(freq[fi] * t, amp) for tr in ntrials]
             end
         end
     end
@@ -81,8 +81,8 @@ function simulate_events(
     ntrials::Int64,
     event_ids::Dict{Int64,String},
     relations::Dict{String,Union{Vector,Matrix{Float64}}};
-    dist = multivariate_ndis,
-    means = ones, # default means are 1
+    dist=multivariate_ndis,
+    means=zeros, # default means are 1
 )
 
     @assert !isempty(relations) "columns relation is required!"
@@ -116,7 +116,7 @@ function simulate_events(
 
     # normalize and round categorical events
     X = Matrix(events[!, nom_cols])
-    dt = StatsBase.fit(UnitRangeTransform, X, dims = 1) # axis = columns
+    dt = StatsBase.fit(UnitRangeTransform, X, dims=1) # axis = columns
     events[:, nom_cols] .= round.(Int, StatsBase.transform(dt, X))
 
     return events
@@ -128,16 +128,16 @@ function simulate_epochs_data(
     ntime,
     nchannels,
     events;
-    sampling_rate = 1,
+    sampling_rate=1,
     # define coefficients, we use shuffle to permute the coefficients to 
     # when running multiple simulations at the same time.
-    coef = shuffle(Vector(0:3)),
-    noise_generator = random_noise,
-    windows = hanning_windows,
-    padding = 0
+    coef=shuffle(Vector(0:3)),
+    noise_generator=random_noise,
+    windows=hanning_windows,
+    padding=0
 )
     # signal
-    basisfunc = windows(ntime - 2*padding, 2*padding)
+    basisfunc = windows(ntime - 2 * padding, 2 * padding)
 
     # trials
     ntrials = size(events, 1)
@@ -158,42 +158,46 @@ function simulate_epochs_data(
     @info "Signal to Noise Ratio $(sig_to_noise)"
 
     beta = beta + noise
-    times = range(1, stop = ntime, step = 1 / sampling_rate)
+    times = range(1, stop=ntime, step=1 / sampling_rate)
 
     return SimulationData(events, beta, times, sig_to_noise)
 end
 
 # main function
 function run_simulation(num=1, times=200, trials=300, channels=30)
-    res = []
-    for i in 1:num
-        event_ids =
+    # res = []
+    # for i in 1:num
+        
+    #     push!(res, pt)
+    # end
+    # return res
+    event_ids =
             Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
-        event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
-            "auto_corr" => [],
-            "nominal" => [2],
-            "true_cov" => [1 0.7 0.2; 0.7 1 0.3; 0.2 0.3 1],
-        )
+    event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
+        "auto_corr" => [],
+        "nominal" => [2],
+        "true_cov" => [1 0.7 0.2; 0.7 1 0.3; 0.2 0.3 1],
+    )
 
-        events = simulate_events(trials, event_ids, event_rels)
-        sim_data = simulate_epochs_data(times, channels, events)
-        se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps = 5)
+    events = simulate_events(trials, event_ids, event_rels)
+    sim_data = simulate_epochs_data(times, channels, events, coef=[1, 1, 1, 1])
+    se_solver = (x, y) -> Unfold.solver_b2b(x, y, cross_val_reps=5)
 
-        frm = @formula 0~1 + condA + condB
+    frm = @formula 0 ~ 1 + condA + condB
 
-        # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
-        @info "fit mass-univariate model"
+    # Generate Designmatrix & fit mass-univariate model (one model per epoched-timepoint) 
+    @info "fit mass-univariate model"
+    @info size(sim_data.epochs), sim_data.epochs[4, 2:10, :]
 
-        model, results_expanded = Unfold.fit(
-            UnfoldLinearModel,
-            frm,
-            sim_data.events,
-            sim_data.epochs,
-            sim_data.times,
-            solver = se_solver,
-        )
-        pt = plot_results(results_expanded, layout_x = :basisname)
-        push!(res, pt)
-    end
-    return res
+    _epochs = sim_data.epochs[5:6,:,:]
+
+    model, results_expanded = Unfold.fit(
+        UnfoldLinearModel,
+        frm,
+        sim_data.events,
+        _epochs,
+        sim_data.times,
+        solver=se_solver,
+    )
+    plot_results(results_expanded, layout_x=:basisname)
 end
