@@ -77,7 +77,7 @@ Define covariates and their relation
 
 # ╔═╡ 1c5b20c7-f8ff-443b-9e72-5579101c0858
 event_ids =
-        Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "condA", 4 => "condB")
+        Dict{Int64,String}(1 => "intercept", 2 => "catA", 3 => "contA", 4 => "contB", 5 => "contC")
 
 # ╔═╡ 89f23206-b095-420e-887b-67ebc53d906b
 md"""
@@ -86,9 +86,9 @@ md"""
 
 # ╔═╡ 5dbfc7f4-743a-4add-af4a-a7b062e64730
 begin
-	sl_times = @bind ntimes PlutoUI.Slider(0:5:600, default=200);
-	sl_trials = @bind ntrials PlutoUI.Slider(0:5:600, default=100);
-	sl_channels = @bind nchannels PlutoUI.Slider(1:1:40, default=30);
+	sl_times = @bind ntimes PlutoUI.Slider(0:1:600, default=300);
+	sl_trials = @bind ntrials PlutoUI.Slider(0:1:1000, default=600);
+	sl_channels = @bind nchannels PlutoUI.Slider(1:1:150, default=60);
 	
 	md""" 
 	
@@ -126,9 +126,6 @@ end
 
 # ╔═╡ 648ef3c8-be32-4cbd-97d0-90f21a93451d
 sim_data_pink = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts, noise_generator=B2BRegression.pink_noise);
-
-# ╔═╡ 7f386026-c7ee-4535-a55c-dbe518b8653e
-sim_data_white = B2BRegression.simulate_epochs_data(ntimes, nchannels, evts);
 
 # ╔═╡ 2a3999dc-d648-4337-8420-004c1eb02588
 # Pink Noise
@@ -174,18 +171,6 @@ begin
 	
 end
 
-# ╔═╡ 19b03386-84d5-4bb3-a91e-618365ece88c
-heatmap(sim_data_white.epochs[:,:,slt])
-
-# ╔═╡ 892c50b7-01d4-4293-ab73-a16ab10f6acf
-begin
-	f = Figure(backgroundcolor = RGBf(0.98, 0.98, 0.98),
-	    resolution = (1000, 700))
-	ax = f[1, 2] = GridLayout()
-	plt_left = Axis(ax[1, 1])
-	plt_right = Axis(ax[1, 2])
-end
-
 # ╔═╡ 4c5421f8-7dbf-4ef7-9b17-023ef75c38ec
 md"""
 # Simulation Comparision
@@ -206,14 +191,20 @@ md"""
 inter 
 $(@bind inter PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
 
-correlation (correl) 
-$(@bind corr PlutoUI.Slider(-.9:.1:.9,default=0.6,show_value=true))
+correlation_cat_cont (correl1) 
+$(@bind corr1 PlutoUI.Slider(-.9:.1:.9,default=0.6,show_value=true))
 
-condA (correl)
-$(@bind condA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+correlation_cont_cont (correl2) 
+$(@bind corr2 PlutoUI.Slider(-.9:.1:.9,default=0.6,show_value=true))
 
-condB (uncorr) 
-$(@bind condB PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+contA (correl)
+$(@bind contA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+contB (uncorr) 
+$(@bind contB PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
+
+contC (uncorr) 
+$(@bind contC PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
 
 catA 
 $(@bind catA PlutoUI.Slider(-2:.1:2,default=1,show_value=true))
@@ -228,32 +219,47 @@ $(@bind regcoff PlutoUI.Slider(0:.05:5,default=1,show_value=true))
  event_rels = Dict{String,Union{Vector,Matrix{Float64}}}(
         "auto_corr" => [],
         "nominal" => [2],
-        "true_cov" => [1 corr 0.0; corr 1 0.; 0.0 0.0 1],
+        "true_cov" => [1 corr1 0 0; corr1 1 corr2 0; 0 corr2 1 0; 0 0 0 1],
     )
 
 # ╔═╡ 82eaf5bd-c4c8-4426-acdd-269d4aebcf3f
 devts = B2BRegression.simulate_events(ntrials, event_ids, event_rels)
 
+# ╔═╡ 7f386026-c7ee-4535-a55c-dbe518b8653e
+sim_data_white = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,contA,contB,contC]);
+
+# ╔═╡ 19b03386-84d5-4bb3-a91e-618365ece88c
+heatmap(sim_data_white.epochs[:,:,slt])
+
 # ╔═╡ c2559de7-1bc2-4315-943d-e32adfe26a6b
 begin
-	f_sim_1 = @formula 0~1 + condA + condB
+	f_sim_1 = @formula 0~1 + contA + contB
 	_, res_sim_1 = get_gamma(f_sim_1, sim_data_white.events, sim_data_white.epochs, sim_data_white.times);
 	pt_sim_1 = B2BRegression.plot_results(res_sim_1,layout_x=:basisname)
 end
 
 # ╔═╡ 6c5a98e7-81c6-4d37-b5ff-81a966c26002
 begin
-	f_sim_2 = @formula 0~1 + catA + condA
+	f_sim_2 = @formula 0~1 + contA + contB
 	_, res_sim_2 = get_gamma(f_sim_2, sim_data_white.events, sim_data_white.epochs, sim_data_white.times);
 	pt_sim_2 = B2BRegression.plot_results(res_sim_2,layout_x=:basisname)
 end
 
+# ╔═╡ eb2c8bc7-95ea-46fd-a48c-0efa55efeb68
+begin
+	_low_channel = sim_data_white.epochs[1:3,:,:]
+	_high_channel = sim_data_white.epochs[57:60,:,:]
+	f_sim_21 = @formula 0~1 + catA + contA + contB + contC
+	_, res_sim_21 = get_gamma(f_sim_21, sim_data_white.events, _low_channel, sim_data_white.times);
+	pt_sim_21 = B2BRegression.plot_results(res_sim_21,layout_x=:basisname)
+end
+
 # ╔═╡ a62d2a6c-533f-4591-b29a-0f2d980eda99
 begin
-	nsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,condA,condB]);
+	nsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,contA,contB, contC]);
 	
 	_, res_0 = get_gamma( @formula(0~1 + catA), nsim_data.events, nsim_data.epochs, nsim_data.times);
-	_, res_1 = get_gamma(@formula(0~1 + catA+condA+condB), nsim_data.events, nsim_data.epochs, nsim_data.times);
+	_, res_1 = get_gamma(@formula(0~1 + catA+contA+contB), nsim_data.events, nsim_data.epochs, nsim_data.times);
 	
 	res_0[!,:group] .= "catAonly"
 	res_1[!,:group] .= "full"
@@ -274,10 +280,10 @@ res
 
 # ╔═╡ 46c4c123-c827-4b59-861a-fa002dd22cd7
 begin
-	rnsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,condA,condB]);
+	rnsim_data = B2BRegression.simulate_epochs_data(ntimes, nchannels, devts, coef=[inter,catA,contA,contB, contC]);
 	
 	_, rres_0 = get_reg_gamma( @formula(0~1 + catA), rnsim_data.events, rnsim_data.epochs, rnsim_data.times, "l2", "l2", "l0", regcoff);
-	_, rres_1 = get_reg_gamma(@formula(0~1 + catA+condA+condB), rnsim_data.events, rnsim_data.epochs, rnsim_data.times, "l2", "l2", "l0", regcoff);
+	_, rres_1 = get_reg_gamma(@formula(0~1 + catA+contA+contB), rnsim_data.events, rnsim_data.epochs, rnsim_data.times, "l2", "l2", "l0", regcoff);
 	
 	rres_0[!,:group] .= "catAonly"
 	rres_1[!,:group] .= "full"
@@ -308,8 +314,8 @@ end
 # ╟─1c5b20c7-f8ff-443b-9e72-5579101c0858
 # ╟─a93601a2-1068-4b60-ac8e-3518def6c1f2
 # ╟─89f23206-b095-420e-887b-67ebc53d906b
-# ╟─82eaf5bd-c4c8-4426-acdd-269d4aebcf3f
-# ╟─5dbfc7f4-743a-4add-af4a-a7b062e64730
+# ╠═82eaf5bd-c4c8-4426-acdd-269d4aebcf3f
+# ╠═5dbfc7f4-743a-4add-af4a-a7b062e64730
 # ╟─6092a08d-ea7b-4e81-bda9-ef64d4b52efa
 # ╟─49a39dde-8600-47a4-9cc2-2960cc36c963
 # ╟─b3a8b686-267a-4c7f-ba89-e2cc04236ace
@@ -321,10 +327,10 @@ end
 # ╟─913413d8-2ad6-4e4e-a746-1f5889b6345d
 # ╟─f06e3a8c-b9f7-4c0c-a7bd-67e6cefbd4c4
 # ╠═19b03386-84d5-4bb3-a91e-618365ece88c
-# ╠═c2559de7-1bc2-4315-943d-e32adfe26a6b
-# ╠═6c5a98e7-81c6-4d37-b5ff-81a966c26002
-# ╠═3b70dfc7-0b07-4571-b07b-b3d456eee580
-# ╠═892c50b7-01d4-4293-ab73-a16ab10f6acf
+# ╟─c2559de7-1bc2-4315-943d-e32adfe26a6b
+# ╟─6c5a98e7-81c6-4d37-b5ff-81a966c26002
+# ╠═eb2c8bc7-95ea-46fd-a48c-0efa55efeb68
+# ╟─3b70dfc7-0b07-4571-b07b-b3d456eee580
 # ╟─4c5421f8-7dbf-4ef7-9b17-023ef75c38ec
 # ╟─448af3c2-6869-4845-88f7-a85deb86efc9
 # ╟─a62d2a6c-533f-4591-b29a-0f2d980eda99
